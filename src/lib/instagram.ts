@@ -212,7 +212,8 @@ export async function disconnectInstagram() {
 
 // ---------------------------------------------------------------------------
 
-async function ig<T>(path: string, params: Record<string, string>): Promise<T> {
+/** Graph isteği. "me" yolu Unified login'de Instagram hesap kimliğine çevrilir. */
+export async function igGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const t = await getIgToken();
   if (!t) throw new Error("Instagram bağlı değil");
   const host = t.host ?? "ig";
@@ -228,25 +229,33 @@ async function ig<T>(path: string, params: Record<string, string>): Promise<T> {
   }
   return (await r.json()) as T;
 }
+const ig = igGet;
 
 type InsightsResp = {
   data: { name: string; period: string; values?: { value: number; end_time: string }[]; total_value?: { value: number } }[];
 };
 
 const unix = (d: Date) => Math.floor(+d / 1000);
+type SeriesMetric = "reach" | "follower_count" | "views" | "total_interactions";
 
-/** Günlük seri. API tek istekte en fazla 30 gün verir → parçalar. */
-export async function graphTimeline(metric: "reach" | "follower_count" | "views" | "total_interactions", days: number): Promise<Point[]> {
+/** Günlük seri, son `days` gün. */
+export async function graphTimeline(metric: SeriesMetric, days: number): Promise<Point[]> {
+  const until = new Date();
+  return graphRange(metric, new Date(+until - days * 86_400_000).toISOString(), until.toISOString());
+}
+
+/** Günlük seri, verilen aralık (ISO). API tek istekte en fazla 30 gün verir → parçalar. */
+export async function graphRange(metric: SeriesMetric, sinceIso: string, untilIso: string): Promise<Point[]> {
   "use cache";
   cacheLife("hours");
   const out = new Map<string, number>();
-  const now = new Date();
-  // follower_count ve reach "day" dönemiyle seri verir; diğerleri total_value ister → günlük parçalara böl
+  const start = new Date(sinceIso);
+  const end = new Date(untilIso);
+  // follower_count ve reach "day" dönemiyle seri verir; diğerleri total_value ister → gün gün
   const series = metric === "reach" || metric === "follower_count";
-  for (let start = days; start > 0; start -= 30) {
-    const chunk = Math.min(30, start);
-    const since = new Date(+now - start * 86_400_000);
-    const until = new Date(+since + chunk * 86_400_000);
+  for (let s = +start; s < +end; s += 30 * 86_400_000) {
+    const since = new Date(s);
+    const until = new Date(Math.min(+end, s + 30 * 86_400_000));
     try {
       if (series) {
         const r = await ig<InsightsResp>("me/insights", {
@@ -260,19 +269,22 @@ export async function graphTimeline(metric: "reach" | "follower_count" | "views"
           out.set(k, (out.get(k) ?? 0) + (v.value ?? 0));
         }
       } else {
-        // total_value günlük değer vermez → gün gün sor (30 istek/parça; cache'lendiği için kabul)
-        for (let d = 0; d < chunk; d++) {
-          const s = new Date(+since + d * 86_400_000);
-          const e = new Date(+s + 86_400_000);
-          const r = await ig<InsightsResp>("me/insights", {
-            metric,
-            period: "day",
-            metric_type: "total_value",
-            since: String(unix(s)),
-            until: String(unix(e)),
-          }).catch(() => null);
-          const val = r?.data[0]?.total_value?.value ?? 0;
-          out.set(dayKey(s), val);
+        const days: Date[] = [];
+        for (let d = +since; d < +until; d += 86_400_000) days.push(new Date(d));
+        // 6'şar paralel
+        for (let i = 0; i < days.length; i += 6) {
+          await Promise.all(
+            days.slice(i, i + 6).map(async (ds) => {
+              const r = await ig<InsightsResp>("me/insights", {
+                metric,
+                period: "day",
+                metric_type: "total_value",
+                since: String(unix(ds)),
+                until: String(unix(new Date(+ds + 86_400_000))),
+              }).catch(() => null);
+              out.set(dayKey(ds), r?.data[0]?.total_value?.value ?? 0);
+            }),
+          );
         }
       }
     } catch {
@@ -286,7 +298,7 @@ type Media = {
   id: string;
   caption?: string;
   media_type: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
-  media_product_type?: "FEED" | "REELS" | "STORY";
+  media_product_type?: "FEED" | "REELS" | "STORY" | "AD";
   media_url?: string;
   thumbnail_url?: string;
   permalink: string;
@@ -304,25 +316,23 @@ export async function graphProfile() {
   });
 }
 
-export async function graphPosts(days: number): Promise<IgPost[]> {
+const REEL_METRICS = "views,reach,likes,comments,saved,shares,total_interactions,ig_reels_avg_watch_time";
+const FEED_METRICS = "views,reach,likes,comments,saved,shares,total_interactions,profile_visits,follows";
+
+/** Son `limit` paylaşım + her birinin istatistikleri (story hariç). */
+export async function graphMedia(limit = 24): Promise<IgPost[]> {
   "use cache";
   cacheLife("hours");
-  const since = Date.now() - days * 86_400_000;
   const r = await ig<{ data: Media[] }>("me/media", {
     fields: "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
-    limit: "50",
+    limit: String(Math.min(50, limit + 4)),
   });
-  const all = r.data.filter((m) => m.media_product_type !== "STORY");
-  // Dönemde az paylaşım varsa en son 8 paylaşımı göster (eski reel'ler hâlâ izleniyor olabilir)
-  const inWindow = all.filter((m) => +new Date(m.timestamp) >= since);
-  const media = inWindow.length >= 4 ? inWindow : all.slice(0, Math.max(8, inWindow.length));
+  const media = r.data.filter((m) => m.media_product_type !== "STORY").slice(0, limit);
 
-  const posts: IgPost[] = [];
-  for (const m of media) {
+  const one = async (m: Media): Promise<IgPost> => {
     const reel = m.media_product_type === "REELS" || m.media_type === "VIDEO";
-    const metrics = reel ? "views,reach,likes,comments,saved,shares" : "views,reach,likes,comments,saved,shares";
-    const ins = await ig<InsightsResp>(`${m.id}/insights`, { metric: metrics }).catch(() =>
-      ig<InsightsResp>(`${m.id}/insights`, { metric: "reach,saved" }).catch(() => null),
+    const ins = await ig<InsightsResp>(`${m.id}/insights`, { metric: reel ? REEL_METRICS : FEED_METRICS }).catch(() =>
+      ig<InsightsResp>(`${m.id}/insights`, { metric: "reach,saved,shares" }).catch(() => null),
     );
     const g = (name: string) => {
       const d = ins?.data.find((x) => x.name === name);
@@ -332,9 +342,11 @@ export async function graphPosts(days: number): Promise<IgPost[]> {
     const comments = g("comments") || m.comments_count || 0;
     const saves = g("saved");
     const shares = g("shares");
-    posts.push({
+    const watchMs = g("ig_reels_avg_watch_time");
+    return {
       id: m.id,
       type: reel ? "reel" : "post",
+      format: reel ? "video" : m.media_type === "CAROUSEL_ALBUM" ? "carousel" : "image",
       url: m.permalink,
       image: m.thumbnail_url ?? m.media_url ?? null,
       caption: m.caption ?? "",
@@ -345,10 +357,24 @@ export async function graphPosts(days: number): Promise<IgPost[]> {
       comments,
       saves,
       shares,
-      interactions: likes + comments + saves + shares,
-    });
-  }
-  return posts;
+      interactions: g("total_interactions") || likes + comments + saves + shares,
+      avgWatchSec: watchMs ? watchMs / 1000 : undefined,
+      follows: reel ? undefined : g("follows"),
+      profileVisits: reel ? undefined : g("profile_visits"),
+    };
+  };
+
+  const out: IgPost[] = [];
+  for (let i = 0; i < media.length; i += 6) out.push(...(await Promise.all(media.slice(i, i + 6).map(one))));
+  return out;
+}
+
+/** Dönemdeki paylaşımlar; dönemde 4'ten az varsa en son 8 paylaşım (eski reel'ler hâlâ izleniyor olabilir). */
+export async function graphPosts(days: number): Promise<IgPost[]> {
+  const all = await graphMedia(24);
+  const since = Date.now() - days * 86_400_000;
+  const inWindow = all.filter((p) => +new Date(p.publishedAt) >= since);
+  return inWindow.length >= 4 ? inWindow : all.slice(0, Math.max(8, inWindow.length));
 }
 
 export { TZ };

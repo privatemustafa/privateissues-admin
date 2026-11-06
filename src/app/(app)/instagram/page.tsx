@@ -10,27 +10,82 @@ import { disconnectInstagramAction } from "../actions";
 import { compact, dateTime, money } from "@/lib/format";
 import { Card, Eyebrow, PageHeader, Skeleton, Thumb, cx } from "@/components/ui";
 import { ReachVsOrders } from "@/components/charts";
+import Link from "next/link";
+import { Audience, Content as ContentTab, Drops, Sources, Stories, Timing } from "./sections";
 
 export const metadata = { title: "Instagram" };
 
 const DAYS = 30;
+
+const TABS = [
+  { id: "genel", label: "Genel" },
+  { id: "kitle", label: "Kitle" },
+  { id: "zaman", label: "Zamanlama" },
+  { id: "icerik", label: "İçerik" },
+  { id: "story", label: "Story" },
+  { id: "drop", label: "Drop" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+type SP = { ok?: string; err?: string; tab?: string };
 
 export default function InstagramPage({ searchParams }: PageProps<"/instagram">) {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader title="Instagram" sub="privateissues.wrld × satışlar" />
       <Suspense fallback={<Skeleton className="h-96" />}>
-        <Content searchParams={searchParams as Promise<{ ok?: string; err?: string }>} />
+        <Router searchParams={searchParams as Promise<SP>} />
       </Suspense>
     </div>
   );
 }
 
-async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
+async function Router({ searchParams }: { searchParams: Promise<SP> }) {
   await requireSession();
   const sp = await searchParams;
   const src = await igSource();
   if (!src) return <Setup err={sp.err} />;
+  const tab: Tab = (TABS.find((t) => t.id === sp.tab)?.id ?? "genel") as Tab;
+  const igOnly = tab !== "genel" && tab !== "icerik" && tab !== "drop" && src !== "instagram";
+
+  return (
+    <div className="space-y-4">
+      <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        {TABS.map((t) => (
+          <Link
+            key={t.id}
+            href={t.id === "genel" ? "/instagram" : `/instagram?tab=${t.id}`}
+            className={cx(
+              "h-9 shrink-0 rounded-full px-4 text-[13.5px] leading-9",
+              t.id === tab ? "bg-ink text-paper" : "border border-line bg-card text-ink-2",
+            )}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      <Suspense key={tab} fallback={<Skeleton className="h-96" />}>
+        {igOnly ? (
+          <Card className="p-5 text-[14px] text-mute">Bu bölüm Instagram bağlantısıyla çalışır.</Card>
+        ) : tab === "kitle" ? (
+          <Audience />
+        ) : tab === "zaman" ? (
+          <Timing />
+        ) : tab === "icerik" ? (
+          src === "instagram" ? <ContentTab /> : <Overview sp={sp} src={src} postsOnly />
+        ) : tab === "story" ? (
+          <Stories />
+        ) : tab === "drop" ? (
+          <Drops />
+        ) : (
+          <Overview sp={sp} src={src} />
+        )}
+      </Suspense>
+    </div>
+  );
+}
+
+async function Overview({ sp, src, postsOnly = false }: { sp: SP; src: "instagram" | "metricool"; postsOnly?: boolean }) {
+  await requireSession();
 
   let data;
   try {
@@ -40,7 +95,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; 
       igTimeline("reach", DAYS),
       igTimeline("views", DAYS),
       igTimeline("postsInteractions", DAYS),
-      igPosts(DAYS),
+      igPosts(DAYS).catch(() => [] as IgPost[]),
       getStats(DAYS),
     ]);
     data = { followers, gained, reach, views, interactions, posts, stats };
@@ -53,6 +108,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; 
     );
   }
   const { followers, gained, reach, views, interactions, posts, stats } = data;
+  if (postsOnly) return <Posts posts={posts} />;
   const sum = (a: { value: number }[]) => a.reduce((s, p) => s + p.value, 0);
   const nowFollowers = followers.at(-1)?.value ?? 0;
 
@@ -99,9 +155,15 @@ async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; 
         )}
       </Card>
 
-      <Suspense fallback={<Skeleton className="h-64" />}>
-        <Posts posts={posts} />
-      </Suspense>
+      {src === "instagram" ? (
+        <Suspense fallback={<Skeleton className="h-48" />}>
+          <Sources />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<Skeleton className="h-64" />}>
+          <Posts posts={posts} />
+        </Suspense>
+      )}
       <Suspense fallback={null}>
         <SourceFooter src={src} />
       </Suspense>

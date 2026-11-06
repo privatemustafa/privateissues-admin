@@ -74,6 +74,11 @@ export type IgPost = {
   saves: number;
   shares: number;
   interactions: number;
+  /** Instagram bağlantısında gelen ek alanlar */
+  format?: "image" | "carousel" | "video";
+  avgWatchSec?: number;
+  follows?: number;
+  profileVisits?: number;
 };
 
 // Metricool alan adları sürüme göre değişebiliyor → savunmacı okuma

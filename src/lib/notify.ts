@@ -14,6 +14,8 @@ import {
   istanbulHour,
   money,
   startOfTodayIstanbul,
+  compact,
+  TZ,
 } from "./format";
 
 const APP = () => (process.env.APP_URL || "").replace(/\/$/, "");
@@ -280,4 +282,41 @@ export async function runDailyDigests() {
       badgeCount: pending.length,
     });
   }
+
+  // Pazartesi sabahı: haftalık rapor (geçen 7 gün)
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(new Date());
+  if (settings.morningDigest && weekday === "Mon" && hour >= 9 && hour < 12) {
+    await weeklyReport(today).catch(() => null);
+  }
+}
+
+async function weeklyReport(ref: string) {
+  const startToday = startOfTodayIstanbul();
+  const weekAgo = new Date(+startToday - 7 * 86_400_000);
+  const twoWeeksAgo = new Date(+startToday - 14 * 86_400_000);
+  const q = (from: Date, to: Date) =>
+    db()
+      .select({ n: count(), total: sum(schema.orders.total) })
+      .from(schema.orders)
+      .where(and(gte(schema.orders.createdAt, from), lt(schema.orders.createdAt, to), eq(schema.orders.test, false)));
+  const [[w], [prev]] = await Promise.all([q(weekAgo, startToday), q(twoWeeksAgo, weekAgo)]);
+  const rev = Number(w?.total ?? 0);
+  const prevRev = Number(prev?.total ?? 0);
+  const diff = prevRev ? Math.round(((rev - prevRev) / prevRev) * 100) : null;
+
+  const { weeklyInstagram } = await import("./ig-store");
+  const ig = await weeklyInstagram().catch(() => null);
+
+  const lines = [
+    `${w?.n ?? 0} sipariş · ${money(rev)}${diff !== null ? ` (${diff >= 0 ? "+" : ""}${diff}%)` : ""}`,
+    ig ? `+${ig.gained} takipçi · ${compact(ig.reach)} erişim · ${ig.posts} paylaşım` : null,
+    ig?.best ? `En iyi içerik: ${(ig.best.caption || (ig.best.type === "reel" ? "Reel" : "Post")).slice(0, 40)} · ${compact(ig.best.reach)} erişim` : null,
+  ].filter(Boolean);
+
+  await once("weekly", ref, {
+    title: "Geçen hafta — Private Issues",
+    body: lines.join("\n"),
+    url: `${APP()}/instagram`,
+    tag: "weekly",
+  });
 }

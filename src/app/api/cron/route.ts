@@ -3,12 +3,14 @@ import { syncOrders } from "@/lib/shopify/sync";
 import { runDailyDigests, runOverdueChecks } from "@/lib/notify";
 import { kvSet } from "@/db";
 import { refreshIgTokenIfNeeded } from "@/lib/instagram";
+import { snapshotStories } from "@/lib/ig-store";
 
 /**
  * Her 15 dakikada bir çağrılır (cron-job.org veya Vercel Cron).
  * 1) Webhook kaçırdıysa diye siparişleri senkronlar
  * 2) Kargolanmamış sipariş hatırlatmaları
- * 3) Sabah özeti / akşam hatırlatması
+ * 3) Sabah özeti / akşam hatırlatması / pazartesi haftalık rapor
+ * 4) Instagram story arşivi (story verisi 24 saatte kalkar)
  */
 export async function GET(request: Request) {
   await connection();
@@ -27,6 +29,7 @@ export async function GET(request: Request) {
   }
   out.overdue = await runOverdueChecks();
   out.instagram = await refreshIgTokenIfNeeded().catch((e) => String(e));
+  out.stories = await snapshotStories().catch((e) => String(e));
   await runDailyDigests();
   await kvSet("cron_last_run", new Date().toISOString());
   return Response.json({ ok: true, ...out });

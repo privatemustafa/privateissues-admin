@@ -179,3 +179,42 @@ export const stockMoves = pgTable(
 
 export type WarehouseItem = typeof warehouseItems.$inferSelect;
 export type StockMove = typeof stockMoves.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Instagram story arşivi — story verisi 24 saat sonra API'den kalkar; cron her çalıştığında son halini yazar.
+export const igStories = pgTable(
+  "ig_stories",
+  {
+    id: text("id").primaryKey(),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+    mediaType: text("media_type"),
+    permalink: text("permalink"),
+    image: text("image"),
+    views: integer("views").notNull().default(0),
+    reach: integer("reach").notNull().default(0),
+    replies: integer("replies").notNull().default(0),
+    shares: integer("shares").notNull().default(0),
+    interactions: integer("interactions").notNull().default(0),
+    follows: integer("follows").notNull().default(0),
+    profileVisits: integer("profile_visits").notNull().default(0),
+    tapsForward: integer("taps_forward").notNull().default(0),
+    tapsBack: integer("taps_back").notNull().default(0),
+    exits: integer("exits").notNull().default(0),
+    swipeForward: integer("swipe_forward").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ig_stories_published_idx").on(t.publishedAt)],
+);
+
+// Drop takibi — teaser başlangıcı → lansman → sonrası
+export const drops = pgTable("drops", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  teaserAt: timestamp("teaser_at", { withTimezone: true }).notNull(),
+  launchAt: timestamp("launch_at", { withTimezone: true }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type IgStory = typeof igStories.$inferSelect;
+export type Drop = typeof drops.$inferSelect;

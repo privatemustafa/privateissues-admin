@@ -297,3 +297,50 @@ export async function disconnectInstagramAction(): Promise<ActionResult> {
   refresh();
   return { ok: true, message: "Instagram bağlantısı kesildi" };
 }
+
+// ---------------------------------------------------------------------------
+// Drop'lar
+
+/** datetime-local değerini İstanbul saati olarak yorumla */
+function istanbulDate(v: string) {
+  if (!v) return null;
+  const d = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(v) ? v : `${v.length === 10 ? `${v}T00:00` : v}:00+03:00`);
+  return Number.isNaN(+d) ? null : d;
+}
+
+export async function addDropAction(_: ActionResult | undefined, form: FormData): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const name = String(form.get("name") ?? "").trim();
+    const teaserAt = istanbulDate(String(form.get("teaserAt") ?? ""));
+    const launchAt = istanbulDate(String(form.get("launchAt") ?? ""));
+    if (!name || !teaserAt || !launchAt) return { ok: false, message: "İsim, teaser ve lansman tarihi gerekli" };
+    if (teaserAt > launchAt) return { ok: false, message: "Teaser lansmandan önce olmalı" };
+    const { addDrop } = await import("@/lib/ig-store");
+    await addDrop({ name, teaserAt, launchAt, note: String(form.get("note") ?? "").trim() || null });
+    refresh();
+    return { ok: true, message: "Drop eklendi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deleteDropAction(id: number): Promise<ActionResult> {
+  await requireSession();
+  const { deleteDrop } = await import("@/lib/ig-store");
+  await deleteDrop(id);
+  refresh();
+  return { ok: true, message: "Silindi" };
+}
+
+export async function snapshotStoriesAction(): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { snapshotStories } = await import("@/lib/ig-store");
+    const n = await snapshotStories();
+    refresh();
+    return { ok: true, message: typeof n === "number" ? `${n} aktif story kaydedildi` : String(n) };
+  } catch (e) {
+    return fail(e);
+  }
+}
