@@ -281,8 +281,14 @@ export async function Timing() {
   const maxDay = Math.max(1, ...dayAvg);
   const slotAvg = slots.map((s) => (s.n ? s.reach / s.n : 0));
   const maxSlot = Math.max(1, ...slotAvg);
-  const bestDay = dayAvg.indexOf(Math.max(...dayAvg));
-  const bestSlot = slotAvg.indexOf(Math.max(...slotAvg));
+  // Tek paylaşımlık şans eseri patlamaları saymamak için en az 3 paylaşım olan dilimler arasından seç
+  const pick = (avgs: number[], ns: number[]) => {
+    const ok = avgs.map((v, i) => ({ v, i })).filter((x) => ns[x.i] >= 3);
+    const pool = ok.length ? ok : avgs.map((v, i) => ({ v, i }));
+    return pool.sort((a, b) => b.v - a.v)[0]?.i ?? 0;
+  };
+  const bestDay = pick(dayAvg, byDay.map((d) => d.n));
+  const bestSlot = pick(slotAvg, slots.map((s) => s.n));
 
   return (
     <div className="space-y-4">
@@ -334,7 +340,7 @@ export async function Timing() {
             <Insight>
               Son {media.length} paylaşımda en iyi sonuç <b className="font-medium text-ink">{WEEKDAYS[bestDay]}</b> günü ve{" "}
               <b className="font-medium text-ink">{slots[bestSlot].label.split(" ")[0].toLowerCase()}</b> paylaşılanlarda. Az paylaşım
-              olan günler yanıltabilir; sayı yanında yazıyor.
+              olan dilimler hesaba katılmadı; paylaşım sayısı yanında yazıyor.
             </Insight>
           )}
         </Card>
