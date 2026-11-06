@@ -47,7 +47,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; 
   } catch (e) {
     return (
       <Card className="p-6">
-        <p className="font-medium">Metricool’a bağlanılamadı</p>
+        <p className="font-medium">Instagram verisi alınamadı</p>
         <p className="mt-1 text-[13px] text-mute">{String(e)}</p>
       </Card>
     );
@@ -178,7 +178,7 @@ async function Posts({ posts }: { posts: IgPost[] }) {
 
       <Card className="overflow-hidden">
         <div className="px-4 pt-4 pb-2">
-          <Eyebrow>İçerikler · paylaşım sonrası 48 saat</Eyebrow>
+          <Eyebrow>Son içerikler · paylaşım sonrası 48 saat</Eyebrow>
         </div>
         <div className="divide-y divide-line">
           {rows.map(({ p, n, rev }) => (

@@ -55,12 +55,9 @@ export async function igPosts(days: number): Promise<IgPost[]> {
 }
 
 async function currentFollowers(): Promise<number> {
-  const { getIgToken } = await import("./instagram");
-  const t = await getIgToken();
-  if (!t) return 0;
-  const r = await fetch(`https://graph.instagram.com/v22.0/me?fields=followers_count&access_token=${t.token}`, { cache: "no-store" });
-  if (!r.ok) return 0;
-  return ((await r.json()) as { followers_count?: number }).followers_count ?? 0;
+  const { graphProfile } = await import("./instagram");
+  const p = await graphProfile().catch(() => null);
+  return p?.followers_count ?? 0;
 }
 
 export type { IgPost, Point };

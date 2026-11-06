@@ -295,6 +295,15 @@ type Media = {
   comments_count?: number;
 };
 
+/** Profil: takipçi, gönderi sayısı, kullanıcı adı. */
+export async function graphProfile() {
+  "use cache";
+  cacheLife("minutes");
+  return ig<{ followers_count?: number; media_count?: number; username?: string }>("me", {
+    fields: "followers_count,media_count,username",
+  });
+}
+
 export async function graphPosts(days: number): Promise<IgPost[]> {
   "use cache";
   cacheLife("hours");
@@ -303,7 +312,10 @@ export async function graphPosts(days: number): Promise<IgPost[]> {
     fields: "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
     limit: "50",
   });
-  const media = r.data.filter((m) => +new Date(m.timestamp) >= since && m.media_product_type !== "STORY");
+  const all = r.data.filter((m) => m.media_product_type !== "STORY");
+  // Dönemde az paylaşım varsa en son 8 paylaşımı göster (eski reel'ler hâlâ izleniyor olabilir)
+  const inWindow = all.filter((m) => +new Date(m.timestamp) >= since);
+  const media = inWindow.length >= 4 ? inWindow : all.slice(0, Math.max(8, inWindow.length));
 
   const posts: IgPost[] = [];
   for (const m of media) {
