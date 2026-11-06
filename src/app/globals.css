@@ -1,26 +1,98 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter-tight";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  privateissues.admin — beyaz & krem, ince çizgiler, büyük rakamlar.
+  Helvetica Neue varsa onu kullanır (Mac/iOS); Android'de Inter Tight'a düşer.
+*/
+@theme {
+  --color-paper: #f6f3ec;
+  --color-cream: #efe9dd;
+  --color-sand: #e4ddcd;
+  --color-line: #e2dccf;
+  --color-card: #ffffff;
+  --color-ink: #141414;
+  --color-ink-2: #3a3833;
+  --color-mute: #8b867a;
+  --color-faint: #b9b3a6;
+
+  --color-fresh: #4e6b4a;
+  --color-due: #b8862b;
+  --color-late: #b4542f;
+  --color-critical: #8f2a1c;
+
+  --font-sans: "Helvetica Neue", Helvetica, "Inter Tight Variable", Arial, sans-serif;
+
+  --radius-card: 18px;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "tnum";
+    letter-spacing: -0.005em;
+  }
+  ::selection {
+    background: var(--color-sand);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+@utility hairline {
+  border-color: var(--color-line);
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes pi-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pi-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes pi-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.animate-in {
+  animation: pi-in 0.45s var(--ease-out-soft) both;
+}
+.animate-pulse-dot {
+  animation: pi-pulse 1.6s ease-in-out infinite;
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-cream) 25%, var(--color-paper) 50%, var(--color-cream) 75%);
+  background-size: 200% 100%;
+  animation: pi-shimmer 1.4s linear infinite;
+  border-radius: 12px;
 }
