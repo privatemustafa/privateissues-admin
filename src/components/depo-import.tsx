@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FIELD_LABEL, parseStock, type ParsedRow } from "@/lib/parse-stock";
-import { depoImportAction } from "@/app/(app)/actions";
+import { depoImportAction, depoLoadInitialAction } from "@/app/(app)/actions";
 import { Card, Eyebrow, cx } from "./ui";
 
 const SAMPLE = `Ürün\tRenk\tBeden\tAdet\tRaf
@@ -31,8 +31,29 @@ export function DepoImport({ hasItems }: { hasItems: boolean }) {
 
   return (
     <div className="space-y-4">
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+        <div>
+          <p className="text-[15px] font-medium">Verdiğin stok hazır</p>
+          <p className="text-[13px] text-mute">Yeni koleksiyon + 19 Ağu raporu · rapordan sonraki siparişler düşülür</p>
+        </div>
+        <button
+          disabled={pending}
+          onClick={() =>
+            run(async () => {
+              if (hasItems && !confirm("Mevcut depo silinip hazır listeyle baştan kurulacak. Emin misin?")) return;
+              const r = await depoLoadInitialAction();
+              setMsg({ ok: r.ok, text: r.message ?? "" });
+              if (r.ok) setTimeout(() => router.push("/depo"), 1200);
+            })
+          }
+          className="h-10 rounded-full bg-ink px-4 text-[13.5px] font-medium text-paper disabled:opacity-50"
+        >
+          Hazır stoğu yükle
+        </button>
+        {msg && !parsed && <p className={cx("w-full text-[13px]", msg.ok ? "text-mute" : "text-late")}>{msg.text}</p>}
+      </Card>
       <Card className="p-5">
-        <Eyebrow>1 · Listeyi yapıştır</Eyebrow>
+        <Eyebrow>1 · Ya da listeyi yapıştır</Eyebrow>
         <p className="mt-1 text-[13.5px] text-mute">
           Excel ya da Google Sheets&apos;te hücreleri seç, kopyala, buraya yapıştır. Başlıklar Türkçe ya da İngilizce olabilir:{" "}
           <b className="font-medium text-ink-2">Ürün, Beden, Adet</b> zorunlu; Renk, Raf, Kod, Maliyet, Min isteğe bağlı.

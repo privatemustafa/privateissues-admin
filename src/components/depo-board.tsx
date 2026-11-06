@@ -15,7 +15,7 @@ import { SmartImg } from "./img";
 import { Card, Eyebrow, cx } from "./ui";
 
 type Filter = "all" | "low" | "out";
-type Group = { key: string; product: string; color: string | null; image: string | null; items: WarehouseItem[] };
+type Group = { key: string; product: string; color: string | null; category: string | null; collection: string | null; image: string | null; items: WarehouseItem[] };
 
 const SIZE_ORDER = ["xxs", "xs", "s", "m", "l", "xl", "xxl", "2xl", "xxxl", "3xl", "4xl"];
 const sizeRank = (v: string | null) => {
@@ -38,13 +38,15 @@ export function DepoBoard({
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState(initialQuery ?? "");
   const [open, setOpen] = useState<number | null>(null);
+  const collections = [...new Set([...items].sort((a, b) => a.id - b.id).map((i) => i.collection).filter(Boolean))] as string[];
+  const [col, setCol] = useState<string | null>(null);
 
   const minOf = (i: WarehouseItem) => i.minQty ?? low;
   const groups = useMemo(() => {
     const m = new Map<string, Group>();
     for (const it of items) {
       const k = `${it.product}|${it.color ?? ""}`;
-      const g = m.get(k) ?? { key: k, product: it.product, color: it.color, image: it.image, items: [] };
+      const g = m.get(k) ?? { key: k, product: it.product, color: it.color, category: it.category, collection: it.collection, image: it.image, items: [] };
       g.image ??= it.image;
       g.items.push(it);
       m.set(k, g);
@@ -52,6 +54,7 @@ export function DepoBoard({
     const ql = q.toLocaleLowerCase("tr-TR");
     return [...m.values()]
       .map((g) => ({ ...g, items: g.items.sort((a, b) => sizeRank(a.variant) - sizeRank(b.variant)) }))
+      .filter((g) => !col || g.collection === col)
       .filter((g) => !ql || `${g.product} ${g.color ?? ""} ${g.items.map((i) => `${i.sku ?? ""} ${i.location ?? ""}`).join(" ")}`.toLocaleLowerCase("tr-TR").includes(ql))
       .filter((g) =>
         filter === "all"
@@ -62,7 +65,7 @@ export function DepoBoard({
       )
       .sort((a, b) => Math.min(...a.items.map((i) => i.qty - minOf(i))) - Math.min(...b.items.map((i) => i.qty - minOf(i))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, q, filter, low]);
+  }, [items, q, filter, low, col]);
 
   const counts = {
     low: items.filter((i) => i.qty > 0 && i.qty <= minOf(i)).length,
@@ -100,6 +103,27 @@ export function DepoBoard({
         />
       </div>
 
+      {collections.length > 1 && (
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+          {[null, ...collections].map((c) => {
+            const n = items.filter((i) => !c || i.collection === c).reduce((s, i) => s + Math.max(0, i.qty), 0);
+            return (
+              <button
+                key={c ?? "all"}
+                onClick={() => setCol(c)}
+                className={cx(
+                  "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition",
+                  col === c ? "bg-sand font-medium text-ink" : "text-mute",
+                )}
+              >
+                {c ?? "Tüm koleksiyonlar"}
+                <span className="num text-faint">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="grid gap-3 md:grid-cols-2">
         {groups.map((g) => {
           const total = g.items.reduce((s, i) => s + Math.max(0, i.qty), 0);
@@ -111,7 +135,7 @@ export function DepoBoard({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium">{g.product}</p>
                   <p className="truncate text-[12.5px] text-mute">
-                    {[g.color, `${total} adet`, shared.size === 1 ? `Raf ${[...shared][0]}` : null].filter(Boolean).join(" · ")}
+                    {[g.color, g.category, `${total} adet`, shared.size === 1 ? `Raf ${[...shared][0]}` : null].filter(Boolean).join(" · ")}
                   </p>
                 </div>
               </div>
@@ -169,7 +193,7 @@ export function DepoBoard({
   );
 }
 
-type Mode = "in" | "out" | "count" | "return" | "info";
+type Mode = "in" | "out" | "pr" | "count" | "return" | "info";
 
 function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => void }) {
   const [mode, setMode] = useState<Mode>("in");
@@ -185,11 +209,12 @@ function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => voi
   const tabs: [Mode, string][] = [
     ["in", "Giriş"],
     ["out", "Çıkış"],
+    ["pr", "PR"],
     ["count", "Sayım"],
     ["return", "İade"],
     ["info", "Bilgi"],
   ];
-  const after = mode === "count" ? n : mode === "out" ? item.qty - n : item.qty + n;
+  const after = mode === "count" ? n : mode === "out" || mode === "pr" ? item.qty - n : item.qty + n;
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -209,8 +234,8 @@ function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => voi
             })
           : await depoMoveAction({
               itemId: item.id,
-              reason: mode === "in" ? "restock" : mode === "out" ? "out" : mode === "count" ? "count" : "return",
-              ...(mode === "count" ? { setTo: n } : { delta: mode === "out" ? -n : n }),
+              reason: mode === "in" ? "restock" : mode === "out" ? "out" : mode === "pr" ? "pr" : mode === "count" ? "count" : "return",
+              ...(mode === "count" ? { setTo: n } : { delta: mode === "out" || mode === "pr" ? -n : n }),
               note: note.trim() || undefined,
             });
       setMsg({ ok: r.ok, text: r.message ?? "" });
@@ -233,12 +258,12 @@ function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => voi
           Kapat
         </button>
       </div>
-      <div className="mt-2 grid grid-cols-5 gap-1 rounded-full bg-card p-0.5 shadow-[0_0_0_1px_var(--color-line)]">
+      <div className="mt-2 grid grid-cols-6 gap-0.5 rounded-full bg-card p-0.5 shadow-[0_0_0_1px_var(--color-line)]">
         {tabs.map(([k, l]) => (
           <button
             key={k}
             onClick={() => switchMode(k)}
-            className={cx("h-8 rounded-full text-[12.5px] transition", mode === k ? "bg-ink font-medium text-paper" : "text-ink-2")}
+            className={cx("h-8 rounded-full text-[12px] transition", mode === k ? "bg-ink font-medium text-paper" : "text-ink-2")}
           >
             {l}
           </button>
@@ -277,7 +302,7 @@ function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => voi
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={
-              mode === "in" ? "Not: atölyeden geldi, 2. üretim…" : mode === "out" ? "Not: hediye, numune, fire…" : mode === "return" ? "Not: sipariş no, neden…" : "Not (opsiyonel)"
+              mode === "in" ? "Not: atölyeden geldi, 2. üretim…" : mode === "pr" ? "Kime: isim / hesap (zorunlu değil)" : mode === "out" ? "Not: numune, fire…" : mode === "return" ? "Not: sipariş no, neden…" : "Not (opsiyonel)"
             }
             className="mt-3 h-10 w-full rounded-xl border border-line bg-card px-3 text-[14px] outline-none focus:border-ink"
           />

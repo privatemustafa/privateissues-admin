@@ -4,7 +4,9 @@ import { refresh } from "next/cache";
 import { db, schema } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { fulfillOrder, getInventory, registerWebhooks, setStock, updateShopifyNote } from "@/lib/shopify/actions";
+import { INITIAL_STOCK, OLD_REPORT_AT } from "@/data/initial-stock";
 import {
+  catchUpOrders,
   deleteItem,
   dismissUnmatched,
   importRows,
@@ -246,6 +248,29 @@ export async function depoSeedFromShopifyAction(): Promise<ActionResult> {
     const r = await importRows(rows, "merge");
     refresh();
     return { ok: true, message: `${r.created} beden eklendi, ${r.updated} güncellendi` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/**
+ * Mustafa'nın verdiği başlangıç stoğunu yükler (eski koleksiyon raporu + yeni koleksiyon).
+ * Depo 19 Ağu raporundan başlar; o tarihten sonraki Shopify siparişleri otomatik düşülür.
+ */
+export async function depoLoadInitialAction(): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const r = await importRows(INITIAL_STOCK, "replace", {
+      startedAt: OLD_REPORT_AT,
+      note: "Başlangıç stoğu",
+    });
+    const applied = await catchUpOrders();
+    refresh();
+    const units = INITIAL_STOCK.reduce((s, x) => s + x.qty, 0);
+    return {
+      ok: true,
+      message: `${r.created} ürün-beden, ${units} adet yüklendi${applied ? ` · rapordan sonraki ${applied} sipariş düşüldü` : ""}`,
+    };
   } catch (e) {
     return fail(e);
   }

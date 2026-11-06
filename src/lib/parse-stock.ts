@@ -4,6 +4,8 @@ export type ParsedRow = {
   product: string;
   variant: string | null;
   color: string | null;
+  category: string | null;
+  collection: string | null;
   qty: number;
   sku: string | null;
   location: string | null;
@@ -17,6 +19,8 @@ const ALIASES: Record<Field, string[]> = {
   product: ["urun", "ürün", "urunadi", "ürünadı", "product", "model", "ad", "adi", "isim", "title", "name"],
   variant: ["beden", "size", "varyant", "variant", "olcu", "ölçü"],
   color: ["renk", "color", "colour"],
+  category: ["kategori", "category", "tur", "tür", "tip", "type"],
+  collection: ["koleksiyon", "collection", "sezon", "season", "drop"],
   qty: ["adet", "stok", "miktar", "qty", "quantity", "sayi", "sayı", "stock", "elde", "mevcut"],
   sku: ["sku", "kod", "urunkodu", "barkod", "barcode", "code"],
   location: ["raf", "konum", "location", "yer", "depo", "koli", "kutu"],
@@ -117,6 +121,8 @@ export function parseStock(text: string): { rows: ParsedRow[]; columns: Partial<
       product,
       variant: get("variant") || null,
       color: get("color") || null,
+      category: get("category") || null,
+      collection: get("collection") || null,
       qty: Math.round(qty),
       sku: get("sku") || null,
       location: get("location") || null,
@@ -131,6 +137,8 @@ export const FIELD_LABEL: Record<Field, string> = {
   product: "Ürün",
   variant: "Beden",
   color: "Renk",
+  category: "Kategori",
+  collection: "Koleksiyon",
   qty: "Adet",
   sku: "Kod",
   location: "Raf",

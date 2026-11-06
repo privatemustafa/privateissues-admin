@@ -127,6 +127,10 @@ export const warehouseItems = pgTable(
     product: text("product").notNull(),
     variant: text("variant"),
     color: text("color"),
+    /** Tee, Zip-up, Long Sleeve… */
+    category: text("category"),
+    /** Koleksiyon / sezon */
+    collection: text("collection"),
     sku: text("sku"),
     qty: integer("qty").notNull().default(0),
     /** Bu adet ve altı "azaldı" (boşsa ayarlardaki genel eşik) */
@@ -147,7 +151,8 @@ export type MoveReason =
   | "unmatched" // sipariş geldi ama depoda karşılığı yok
   | "restock" // mal girişi
   | "count" // sayım düzeltmesi
-  | "out" // fire / hediye / numune
+  | "out" // fire / numune
+  | "pr" // PR / hediye (kime gittiği notta)
   | "return" // müşteri iadesi
   | "import";
 

@@ -8,7 +8,8 @@ import { dateTime, isRecent, money } from "@/lib/format";
 import { Card, Eyebrow, PageHeader, Skeleton, cx } from "@/components/ui";
 import { DepoBoard, UnmatchedBox } from "@/components/depo-board";
 import { ActionButton } from "@/components/small";
-import { depoSeedFromShopifyAction } from "../actions";
+import { depoLoadInitialAction, depoSeedFromShopifyAction } from "../actions";
+import { INITIAL_STOCK } from "@/data/initial-stock";
 
 export const metadata = { title: "Depo" };
 
@@ -45,6 +46,7 @@ const reasonLabel: Record<string, string> = {
   restock: "Giriş",
   count: "Sayım",
   out: "Çıkış",
+  pr: "PR",
   return: "İade",
   import: "Aktarım",
 };
@@ -66,10 +68,21 @@ async function Content({ searchParams }: { searchParams: Promise<{ q?: string }>
           Elindeki stoğu bir kez gir; bundan sonra her sipariş otomatik düşer, iptal olursa geri eklenir, azalınca bildirim
           gelir.
         </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link href="/depo/import" className="rounded-2xl bg-ink p-4 text-paper">
+        <div className="mt-6 rounded-2xl bg-ink p-5 text-paper">
+          <p className="text-[11px] tracking-[0.16em] text-paper/55 uppercase">Hazır</p>
+          <p className="mt-1 text-[17px] font-medium">Verdiğin stoğu yükle</p>
+          <p className="mt-1 text-[13px] text-paper/65">
+            Yeni koleksiyon (Rich, Summer Has Gone, Heaven Long Sleeve) + ilk koleksiyon raporu (19 Ağu) ·{" "}
+            {INITIAL_STOCK.reduce((s, r) => s + r.qty, 0)} adet. Rapordan sonra gelen siparişler otomatik düşülür.
+          </p>
+          <div className="mt-4 [&_button]:border-paper [&_button]:bg-paper [&_button]:text-ink [&_p]:text-paper/70">
+            <ActionButton action={depoLoadInitialAction}>Stoğu yükle</ActionButton>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Link href="/depo/import" className="rounded-2xl border border-line p-4">
             <p className="text-[15px] font-medium">Listeni yapıştır</p>
-            <p className="mt-1 text-[13px] text-paper/65">Excel / Sheets&apos;ten kopyala → yapıştır. Ürün, beden, adet yeter.</p>
+            <p className="mt-1 text-[13px] text-mute">Excel / Sheets&apos;ten kopyala → yapıştır. Ürün, beden, adet yeter.</p>
           </Link>
           <div className="rounded-2xl border border-line p-4">
             <p className="text-[15px] font-medium">Shopify stoğuyla başlat</p>

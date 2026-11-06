@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema, kvGet, kvSet } from "@/db";
 import type { LineItem, MoveReason, NewOrder, Order, WarehouseItem } from "@/db/schema";
 import { getSettings } from "./settings";
@@ -90,7 +90,7 @@ export async function applyOrdersToWarehouse(orders: OrderLike[]) {
   const items = await db().select().from(W);
   for (const o of orders) {
     if (o.test || +new Date(o.createdAt as Date) < +new Date(started)) continue;
-    if (o.cancelledAt) await revertOrder(o.id);
+    if (o.cancelledAt) await revertOrder(o.id, new Date(o.cancelledAt as Date));
     else await deductOrder(o, items);
   }
 }
@@ -111,6 +111,8 @@ async function deductOrder(o: OrderLike, items: WarehouseItem[]) {
           ref: o.id,
           refName: o.name,
           meta,
+          // geriye dönük düşmelerde hareket, siparişin kendi tarihiyle görünsün
+          createdAt: new Date(o.createdAt as Date),
         })
         .onConflictDoNothing()
         .returning({ id: M.id });
@@ -136,7 +138,7 @@ async function deductOrder(o: OrderLike, items: WarehouseItem[]) {
   }
 }
 
-export async function revertOrder(orderId: string) {
+export async function revertOrder(orderId: string, at = new Date()) {
   const moves = await db()
     .select()
     .from(M)
@@ -150,7 +152,7 @@ export async function revertOrder(orderId: string) {
     await db().transaction(async (tx) => {
       const ins = await tx
         .insert(M)
-        .values({ dedupe: `cancel:${mv.id}`, itemId: mv.itemId, delta: -mv.delta, reason: "cancel", ref: orderId, refName: mv.refName })
+        .values({ dedupe: `cancel:${mv.id}`, itemId: mv.itemId, delta: -mv.delta, reason: "cancel", ref: orderId, refName: mv.refName, createdAt: at })
         .onConflictDoNothing()
         .returning({ id: M.id });
       if (!ins.length) return;
@@ -225,6 +227,8 @@ export type ImportRow = {
   product: string;
   variant?: string | null;
   color?: string | null;
+  category?: string | null;
+  collection?: string | null;
   qty: number;
   sku?: string | null;
   location?: string | null;
@@ -238,7 +242,11 @@ export type ImportRow = {
  * merge: aynı ürün+beden+renk varsa adedi bu değere ayarlar (fark "sayım" hareketi olarak yazılır), yoksa ekler.
  * replace: depoyu sıfırlar ve listeyi baştan kurar.
  */
-export async function importRows(rows: ImportRow[], mode: "merge" | "replace") {
+export async function importRows(
+  rows: ImportRow[],
+  mode: "merge" | "replace",
+  opts: { startedAt?: Date; note?: string } = {},
+) {
   let created = 0;
   let updated = 0;
   await db().transaction(async (tx) => {
@@ -261,13 +269,15 @@ export async function importRows(rows: ImportRow[], mode: "merge" | "replace") {
             location: r.location ?? cur.location,
             cost: r.cost ?? cur.cost,
             minQty: r.minQty ?? cur.minQty,
+            category: r.category ?? cur.category,
+            collection: r.collection ?? cur.collection,
             image: cur.image ?? r.image ?? null,
             shopifyVariantId: cur.shopifyVariantId ?? r.shopifyVariantId ?? null,
             updatedAt: new Date(),
           })
           .where(eq(W.id, cur.id))
           .returning();
-        if (delta) await tx.insert(M).values({ itemId: cur.id, delta, qtyAfter: u.qty, reason: "import", note: "İçe aktarma" });
+        if (delta) await tx.insert(M).values({ itemId: cur.id, delta, qtyAfter: u.qty, reason: "import", note: opts.note ?? "İçe aktarma" });
         updated++;
       } else {
         const [u] = await tx
@@ -282,17 +292,20 @@ export async function importRows(rows: ImportRow[], mode: "merge" | "replace") {
             location: r.location || null,
             cost: r.cost ?? null,
             minQty: r.minQty ?? null,
+            category: r.category?.trim() || null,
+            collection: r.collection?.trim() || null,
             image: r.image ?? null,
             shopifyVariantId: r.shopifyVariantId ?? null,
           })
           .returning();
         byKey.set(key, u);
-        await tx.insert(M).values({ itemId: u.id, delta: r.qty, qtyAfter: r.qty, reason: "import", note: "İçe aktarma" });
+        await tx.insert(M).values({ itemId: u.id, delta: r.qty, qtyAfter: r.qty, reason: "import", note: opts.note ?? "İçe aktarma" });
         created++;
       }
     }
   });
-  if (mode === "replace") await kvSet("warehouse_started_at", new Date().toISOString());
+  if (opts.startedAt) await kvSet("warehouse_started_at", opts.startedAt.toISOString());
+  else if (mode === "replace") await kvSet("warehouse_started_at", new Date().toISOString());
   else await ensureStarted();
   await attachImagesFromOrders();
   return { created, updated };
@@ -352,3 +365,16 @@ export async function warehouseLookup() {
 }
 
 export type { Order };
+
+/** Başlangıç tarihinden sonra gelmiş (DB'deki) siparişleri depoya uygular — geriye dönük düşme. */
+export async function catchUpOrders() {
+  const started = await warehouseStartedAt();
+  if (!started) return 0;
+  const rows = await db()
+    .select()
+    .from(schema.orders)
+    .where(gte(schema.orders.createdAt, new Date(started)))
+    .orderBy(schema.orders.createdAt);
+  await applyOrdersToWarehouse(rows);
+  return rows.length;
+}
