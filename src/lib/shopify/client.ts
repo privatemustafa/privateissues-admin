@@ -84,7 +84,11 @@ export async function shopifyGraphQL<T>(
   if (!res.ok) throw new ShopifyError(`Shopify ${res.status}: ${await res.text()}`);
 
   const json = (await res.json()) as { data?: T; errors?: unknown };
-  if (json.errors) throw new ShopifyError("Shopify GraphQL hatası", json.errors);
+  if (json.errors) {
+    const list = Array.isArray(json.errors) ? (json.errors as { message?: string }[]) : [];
+    const msg = list.map((e) => e.message).filter(Boolean).slice(0, 2).join(" · ") || JSON.stringify(json.errors).slice(0, 200);
+    throw new ShopifyError(`Shopify GraphQL hatası: ${msg}`, json.errors);
+  }
   return json.data as T;
 }
 
