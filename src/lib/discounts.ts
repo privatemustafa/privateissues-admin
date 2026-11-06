@@ -1,6 +1,5 @@
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { cacheLife } from "next/cache";
 import { db, schema } from "@/db";
 import { shopifyGraphQL } from "./shopify/client";
 import { DISCOUNTS_QUERY } from "./shopify/queries";
@@ -41,8 +40,6 @@ export type DiscountRow = {
 };
 
 async function fetchDiscounts(): Promise<Node[]> {
-  "use cache";
-  cacheLife("minutes");
   const out: Node[] = [];
   let after: string | null = null;
   do {
