@@ -80,6 +80,14 @@ export async function listWebhooks() {
   return d.webhookSubscriptions.nodes;
 }
 
+/** Uygulamanın Shopify'da sahip olduğu izinler (ör. read_all_orders var mı). */
+export async function getAccessScopes() {
+  const d = await shopifyGraphQL<{ currentAppInstallation: { accessScopes: { handle: string }[] } }>(
+    `{ currentAppInstallation { accessScopes { handle } } }`,
+  );
+  return d.currentAppInstallation.accessScopes.map((s) => s.handle);
+}
+
 /** Webhook'ları APP_URL'e göre kurar; eski/yanlış adresleri siler. */
 export async function registerWebhooks(appUrl: string) {
   const uri = `${appUrl.replace(/\/$/, "")}/api/webhooks/shopify`;

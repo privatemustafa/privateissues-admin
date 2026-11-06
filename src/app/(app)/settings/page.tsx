@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { requireSession } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { getRecentNotifications, getSystemStatus } from "@/lib/data";
-import { listWebhooks, WEBHOOK_TOPICS } from "@/lib/shopify/actions";
+import { getAccessScopes, listWebhooks, WEBHOOK_TOPICS } from "@/lib/shopify/actions";
 import { igSource } from "@/lib/ig";
 import { ago, dateTime, isRecent } from "@/lib/format";
 import { Card, Eyebrow, PageHeader, Skeleton, cx } from "@/components/ui";
@@ -61,22 +61,29 @@ async function Prefs() {
 
 async function System() {
   await requireSession();
-  const [status, hooks, ig] = await Promise.all([
+  const [status, hooks, ig, scopes] = await Promise.all([
     getSystemStatus(),
     listWebhooks().catch((e: unknown) => e as Error),
     igSource(),
+    getAccessScopes().catch(() => null),
   ]);
+  const allOrders = !!scopes?.includes("read_all_orders");
+  const hookHost = Array.isArray(hooks) && hooks[0] ? new URL(hooks[0].uri).host : null;
   const hookOk = Array.isArray(hooks) && WEBHOOK_TOPICS.every((t) => hooks.some((h) => h.topic === t));
 
   const rows: { k: string; v: string; ok: boolean }[] = [
     {
       k: "Shopify bağlantısı",
-      v: hooks instanceof Error ? hooks.message.slice(0, 80) : "Bağlı",
-      ok: !(hooks instanceof Error),
+      v: hooks instanceof Error
+        ? hooks.message.slice(0, 80)
+        : allOrders
+          ? "Bağlı · tüm sipariş geçmişi"
+          : "Bağlı · sadece son 60 gün (read_all_orders onayı yok)",
+      ok: !(hooks instanceof Error) && allOrders,
     },
     {
       k: "Webhook'lar",
-      v: Array.isArray(hooks) ? `${hooks.length}/${WEBHOOK_TOPICS.length} kurulu` : "—",
+      v: Array.isArray(hooks) ? `${hooks.length}/${WEBHOOK_TOPICS.length} kurulu${hookHost ? ` · ${hookHost}` : ""}` : "—",
       ok: hookOk,
     },
     {
