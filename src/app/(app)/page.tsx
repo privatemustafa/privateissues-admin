@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { getPending, getRecentOrders, getStats, worstUrgency } from "@/lib/data";
-import { metricoolConfigured, igTimeline } from "@/lib/metricool";
+import { igSource, igTimeline } from "@/lib/ig";
 import { warehouseSummary } from "@/lib/warehouse";
 import { compact, istanbulHour, money, TZ, urgencyLabel } from "@/lib/format";
 import { Card, EmptyState, Eyebrow, Skeleton, Thumb, cx, urgencyColor } from "@/components/ui";
@@ -191,7 +191,7 @@ async function Recent() {
 
 async function InstagramMini() {
   await requireSession();
-  if (!metricoolConfigured()) return null;
+  if (!(await igSource())) return null;
   const data = await Promise.all([igTimeline("followers", 30), igTimeline("reach", 7)]).catch(() => null);
   if (!data) return null;
   const [followers, reach] = data;

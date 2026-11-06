@@ -40,7 +40,8 @@ Private Issues'ın tek yerden yönetildiği panel: Shopify siparişleri, kargo, 
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `CRON_SECRET` | `openssl rand -hex 24` |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | `npm run vapid` |
-| `METRICOOL_TOKEN` | Metricool → Hesap ayarları → API |
+| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` | Aşağıdaki "Instagram bağlantısı" bölümü (ücretsiz) |
+| `METRICOOL_TOKEN` | Alternatif; sadece Metricool Advanced planda var |
 
 ### 3. Yerelde dene
 ```bash
@@ -63,6 +64,19 @@ Ayarlar → **Tüm geçmişi çek** ile siparişler gelir.
 2. ⋮ menü → **Ana ekrana ekle / Uygulamayı yükle**.
 3. Ana ekrandaki ikondan aç → Ayarlar → **Bildirimler**'i aç → **Test bildirimi gönder**.
 4. Android ayarlarında uygulamanın bildirim kanalını "Öncelikli / Pop-up" yaparsan kilit ekranında görselli gelir.
+
+## Instagram bağlantısı (ücretsiz, ~15 dk, bir kere)
+
+Instagram hesabı **Profesyonel** olmalı (İşletme ya da İçerik üreticisi). Facebook sayfası gerekmez.
+
+1. developers.facebook.com → **My Apps → Create App**. Tür olarak **Business** seç, isim `privateissues-admin`.
+2. Uygulama panelinde **Add product → Instagram → Set up**.
+3. Sol menü **Instagram → API setup with Instagram login**:
+   - **Business login settings** → Redirect URI: `https://admin.privateissues.com/api/instagram/callback`
+   - Aynı sayfadaki **Instagram app ID** ve **Instagram app secret**'ı kopyala (Meta app ID değil, Instagram'ınki).
+4. Aynı sayfada **Generate access tokens → Add account**: privateissues.wrld'ü ekle. Instagram uygulamasında Ayarlar → Web sitesi izinleri → Uygulamalar ve web siteleri → **Test davetleri**'nden daveti kabul et. (Uygulama "Development" modunda kaldığı sürece sadece eklenen hesaplar bağlanabilir; senin için yeterli.)
+5. Vercel → Environment Variables: `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` → Redeploy.
+6. Uygulamada **Instagram** sayfası → **Instagram ile bağlan** → privateissues.wrld ile giriş yap → izin ver. Bitti; bağlantı 60 günde bir kendiliğinden yenilenir.
 
 ## Geliştirme
 

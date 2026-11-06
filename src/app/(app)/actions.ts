@@ -289,3 +289,11 @@ export async function depoReceiveAction(itemId: number, sizes: { variant: string
     return fail(e);
   }
 }
+
+export async function disconnectInstagramAction(): Promise<ActionResult> {
+  await requireSession();
+  const { disconnectInstagram } = await import("@/lib/instagram");
+  await disconnectInstagram();
+  refresh();
+  return { ok: true, message: "Instagram bağlantısı kesildi" };
+}

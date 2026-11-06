@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { getRecentNotifications, getSystemStatus } from "@/lib/data";
 import { listWebhooks, WEBHOOK_TOPICS } from "@/lib/shopify/actions";
-import { metricoolConfigured } from "@/lib/metricool";
+import { igSource } from "@/lib/ig";
 import { ago, dateTime, isRecent } from "@/lib/format";
 import { Card, Eyebrow, PageHeader, Skeleton, cx } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
@@ -61,9 +61,10 @@ async function Prefs() {
 
 async function System() {
   await requireSession();
-  const [status, hooks] = await Promise.all([
+  const [status, hooks, ig] = await Promise.all([
     getSystemStatus(),
     listWebhooks().catch((e: unknown) => e as Error),
+    igSource(),
   ]);
   const hookOk = Array.isArray(hooks) && WEBHOOK_TOPICS.every((t) => hooks.some((h) => h.topic === t));
 
@@ -90,7 +91,7 @@ async function System() {
       ok: isRecent(status.lastCron, 60 * 60_000),
     },
     { k: "Bildirim alan cihaz", v: String(status.devices), ok: status.devices > 0 },
-    { k: "Instagram (Metricool)", v: metricoolConfigured() ? "Bağlı" : "Token yok", ok: metricoolConfigured() },
+    { k: "Instagram", v: ig === "instagram" ? "Bağlı (Instagram)" : ig === "metricool" ? "Bağlı (Metricool)" : "Bağlı değil", ok: !!ig },
   ];
 
   return (

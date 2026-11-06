@@ -10,7 +10,7 @@ Private Issues (Istanbul streetwear brand) için tek kullanıcılı admin paneli
 - Postgres + Drizzle (`src/db/schema.ts`, `npm run db:push`)
 - Shopify Admin GraphQL `2026-10` — Dev Dashboard app, **client credentials grant** (token 24 saatte bir yenilenir, `kv` tablosunda cache)
 - Web Push (VAPID, `web-push`), service worker `public/sw.js`
-- Instagram verisi Metricool API'den (`src/lib/metricool.ts`)
+- Instagram verisi: `src/lib/ig.ts` tek kapı → önce Instagram Login (`src/lib/instagram.ts`, graph.instagram.com, token kv'de, cron yeniler), yoksa Metricool (`src/lib/metricool.ts`)
 
 ## Kurallar
 - Cache Components: request-time veri okuyan her bileşen `<Suspense>` içinde olmalı ve başında `await requireSession()` çağırmalı (hem auth hem `connection()` yapar). Bunu atlarsan build "blocking-prerender" hatası verir.

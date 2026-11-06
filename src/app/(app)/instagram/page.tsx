@@ -3,7 +3,10 @@ import { and, eq, gte, isNull } from "drizzle-orm";
 import { requireSession } from "@/lib/auth";
 import { db, schema } from "@/db";
 import { getStats } from "@/lib/data";
-import { igPosts, igTimeline, metricoolConfigured, type IgPost } from "@/lib/metricool";
+import { igPosts, igSource, igTimeline, type IgPost } from "@/lib/ig";
+import { getIgToken, instagramAppConfigured } from "@/lib/instagram";
+import { ActionButton } from "@/components/small";
+import { disconnectInstagramAction } from "../actions";
 import { compact, dateTime, money } from "@/lib/format";
 import { Card, Eyebrow, PageHeader, Skeleton, Thumb, cx } from "@/components/ui";
 import { ReachVsOrders } from "@/components/charts";
@@ -12,20 +15,22 @@ export const metadata = { title: "Instagram" };
 
 const DAYS = 30;
 
-export default function InstagramPage() {
+export default function InstagramPage({ searchParams }: PageProps<"/instagram">) {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader title="Instagram" sub="privateissues.wrld × satışlar" />
       <Suspense fallback={<Skeleton className="h-96" />}>
-        <Content />
+        <Content searchParams={searchParams as Promise<{ ok?: string; err?: string }>} />
       </Suspense>
     </div>
   );
 }
 
-async function Content() {
+async function Content({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   await requireSession();
-  if (!metricoolConfigured()) return <Setup />;
+  const sp = await searchParams;
+  const src = await igSource();
+  if (!src) return <Setup err={sp.err} />;
 
   let data;
   try {
@@ -67,6 +72,7 @@ async function Content() {
 
   return (
     <div className="space-y-4">
+      {sp.ok && <p className="rounded-2xl bg-fresh/10 p-3 text-[13px] text-fresh">Instagram bağlandı.</p>}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Takipçi" value={compact(nowFollowers)} sub={`+${sum(gained)} · 30g`} />
         <Kpi label="Erişim · 30g" value={compact(sum(reach))} />
@@ -96,6 +102,24 @@ async function Content() {
       <Suspense fallback={<Skeleton className="h-64" />}>
         <Posts posts={posts} />
       </Suspense>
+      <Suspense fallback={null}>
+        <SourceFooter src={src} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function SourceFooter({ src }: { src: "instagram" | "metricool" }) {
+  const t = src === "instagram" ? await getIgToken() : null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-[12.5px] text-mute">
+      <span>
+        Kaynak: {src === "instagram" ? `Instagram${t?.username ? ` (@${t.username})` : ""}` : "Metricool"}
+        {t && Number.isFinite(t.expiresAt) && ` · bağlantı ${new Date(t.expiresAt).toLocaleDateString("tr-TR")}'e kadar, otomatik yenilenir`}
+      </span>
+      {src === "instagram" && !process.env.INSTAGRAM_TOKEN && (
+        <ActionButton action={disconnectInstagramAction}>Bağlantıyı kes</ActionButton>
+      )}
     </div>
   );
 }
@@ -185,19 +209,47 @@ async function Posts({ posts }: { posts: IgPost[] }) {
   );
 }
 
-function Setup() {
+function Setup({ err }: { err?: string }) {
+  const ready = instagramAppConfigured();
   return (
-    <Card className="p-6">
-      <p className="text-[17px] font-medium">Instagram’ı bağla</p>
-      <p className="mt-1 text-[14px] text-mute">
-        Instagram verisi Metricool üzerinden geliyor (hesabın zaten bağlı). Metricool → Hesap ayarları → API’den token al,
-        .env’e ekle:
+    <div className="space-y-4">
+      {err && <p className="rounded-2xl bg-late/10 p-3 text-[13px] text-late">Bağlantı kurulamadı: {err === "state" ? "oturum doğrulanamadı, tekrar dene" : err}</p>}
+      <Card className="p-6">
+        <p className="text-[20px] font-medium tracking-tight">Instagram&apos;ı bağla</p>
+        {ready ? (
+          <>
+            <p className="mt-1 max-w-md text-[14px] text-mute">
+              Instagram&apos;a yönlendirilirsin; <b className="font-medium text-ink">privateissues.wrld</b> ile giriş yapıp izin verince
+              takipçi, erişim ve içerik verileri burada görünür. Bağlantı 60 günde bir kendiliğinden yenilenir.
+            </p>
+            <a
+              href="/api/instagram/connect"
+              className="mt-5 inline-flex h-12 items-center rounded-2xl bg-ink px-6 text-[15px] font-medium text-paper"
+            >
+              Instagram ile bağlan
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="mt-1 max-w-lg text-[14px] text-mute">
+              Bir kerelik kurulum: developers.facebook.com&apos;da ücretsiz bir uygulama aç, <b className="font-medium text-ink">Instagram</b>{" "}
+              ürününü ekle, yönlendirme adresine aşağıdakini yaz ve Instagram uygulama kimliğiyle gizli anahtarı Vercel&apos;e ekle.
+              Ayrıntılı adımlar README&apos;de.
+            </p>
+            <pre className="mt-4 overflow-x-auto rounded-2xl bg-paper p-4 text-[13px] leading-relaxed">
+              {`Yönlendirme (redirect) adresi:
+${(process.env.APP_URL || "https://admin.privateissues.com").replace(/\/$/, "")}/api/instagram/callback
+
+Vercel → Environment Variables:
+INSTAGRAM_APP_ID=...
+INSTAGRAM_APP_SECRET=...`}
+            </pre>
+          </>
+        )}
+      </Card>
+      <p className="px-1 text-[12.5px] text-faint">
+        Alternatif: Metricool Advanced planındaysan METRICOOL_TOKEN ile de bağlanır.
       </p>
-      <pre className="mt-4 overflow-x-auto rounded-2xl bg-paper p-4 text-[13px] leading-relaxed">
-        {`METRICOOL_TOKEN=...
-METRICOOL_USER_ID=5731494
-METRICOOL_BLOG_ID=7379938`}
-      </pre>
-    </Card>
+    </div>
   );
 }

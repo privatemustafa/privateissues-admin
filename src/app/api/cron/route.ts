@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { syncOrders } from "@/lib/shopify/sync";
 import { runDailyDigests, runOverdueChecks } from "@/lib/notify";
 import { kvSet } from "@/db";
+import { refreshIgTokenIfNeeded } from "@/lib/instagram";
 
 /**
  * Her 15 dakikada bir çağrılır (cron-job.org veya Vercel Cron).
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     out.syncError = String(e);
   }
   out.overdue = await runOverdueChecks();
+  out.instagram = await refreshIgTokenIfNeeded().catch((e) => String(e));
   await runDailyDigests();
   await kvSet("cron_last_run", new Date().toISOString());
   return Response.json({ ok: true, ...out });
