@@ -285,3 +285,27 @@ export const prPosts = pgTable(
 export type PrPerson = typeof prPeople.$inferSelect;
 export type PrSend = typeof prSends.$inferSelect;
 export type PrPost = typeof prPosts.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Notlar — ortak not defteri; her not bir checklist
+
+export type NoteItem = { id: string; text: string; done: boolean; doneAt?: string | null; doneBy?: string | null };
+
+export const notes = pgTable(
+  "notes",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    body: text("body"),
+    items: jsonb("items").$type<NoteItem[]>().notNull().default([]),
+    pinned: boolean("pinned").notNull().default(false),
+    archived: boolean("archived").notNull().default(false),
+    color: text("color"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notes_updated_idx").on(t.updatedAt)],
+);
+
+export type Note = typeof notes.$inferSelect;

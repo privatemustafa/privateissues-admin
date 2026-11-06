@@ -432,3 +432,75 @@ export async function prUpdatePersonAction(
   refresh();
   return { ok: true, message: "Kaydedildi" };
 }
+
+// ---------------------------------------------------------------------------
+// Notlar
+
+export async function noteCreateAction(_: ActionResult | undefined, form: FormData): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { createNote } = await import("@/lib/notes");
+    const title = String(form.get("title") ?? "").trim();
+    const items = String(form.get("items") ?? "")
+      .split("\n")
+      .map((s) => s.replace(/^[-*•\s]+/, "").trim())
+      .filter(Boolean);
+    if (!title && !items.length) return { ok: false, message: "Başlık ya da madde yaz" };
+    await createNote({ title: title || items[0], body: String(form.get("body") ?? ""), items, by: String(form.get("by") ?? "") });
+    refresh();
+    return { ok: true, message: "Not eklendi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function noteToggleAction(noteId: number, itemId: string, done: boolean, by: string | null): Promise<ActionResult> {
+  await requireSession();
+  const { toggleItem } = await import("@/lib/notes");
+  await toggleItem(noteId, itemId, done, by);
+  refresh();
+  return { ok: true };
+}
+
+export async function noteAddItemAction(noteId: number, text: string): Promise<ActionResult> {
+  await requireSession();
+  const { addItem } = await import("@/lib/notes");
+  await addItem(noteId, text);
+  refresh();
+  return { ok: true };
+}
+
+export async function noteRemoveItemAction(noteId: number, itemId: string): Promise<ActionResult> {
+  await requireSession();
+  const { removeItem } = await import("@/lib/notes");
+  await removeItem(noteId, itemId);
+  refresh();
+  return { ok: true };
+}
+
+export async function noteEditItemAction(noteId: number, itemId: string, text: string): Promise<ActionResult> {
+  await requireSession();
+  const { editItem } = await import("@/lib/notes");
+  await editItem(noteId, itemId, text);
+  refresh();
+  return { ok: true };
+}
+
+export async function noteUpdateAction(
+  id: number,
+  patch: { title?: string; body?: string | null; pinned?: boolean; archived?: boolean },
+): Promise<ActionResult> {
+  await requireSession();
+  const { updateNote } = await import("@/lib/notes");
+  await updateNote(id, patch);
+  refresh();
+  return { ok: true };
+}
+
+export async function noteDeleteAction(id: number): Promise<ActionResult> {
+  await requireSession();
+  const { deleteNote } = await import("@/lib/notes");
+  await deleteNote(id);
+  refresh();
+  return { ok: true, message: "Silindi" };
+}

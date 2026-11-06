@@ -11,7 +11,8 @@ const items: { href: string; label: string; icon: (p: P) => React.ReactNode; bad
   { href: "/depo", label: "Depo", icon: IconShelf, mobile: true },
   { href: "/stock", label: "Shopify stok", icon: IconStack },
   { href: "/instagram", label: "Instagram", icon: IconSpark, mobile: true },
-  { href: "/pr", label: "PR", icon: IconGift, mobile: true },
+  { href: "/pr", label: "PR", icon: IconGift },
+  { href: "/notlar", label: "Notlar", icon: IconCheck, mobile: true },
   { href: "/settings", label: "Ayarlar", icon: IconDial, mobile: true },
 ];
 
@@ -126,6 +127,14 @@ function IconGift({ className }: P) {
       <rect x="3.5" y="8.5" width="17" height="12" rx="2" />
       <path d="M3.5 12.5h17M12 8.5v12" />
       <path d="M12 8.5c-1.5-3.5-5.5-4-5.5-1.5S12 8.5 12 8.5zm0 0c1.5-3.5 5.5-4 5.5-1.5S12 8.5 12 8.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconCheck({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <rect x="4" y="3.5" width="16" height="17" rx="3" />
+      <path d="M8 12.5l2.5 2.5 5.5-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
