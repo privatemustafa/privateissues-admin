@@ -43,6 +43,19 @@ export function normCity(s: string | null | undefined) {
     .trim();
 }
 
+const PROVINCES = new Set(
+  "adana adiyaman afyonkarahisar agri aksaray amasya ankara antalya ardahan artvin aydin balikesir bartin batman bayburt bilecik bingol bitlis bolu burdur bursa canakkale cankiri corum denizli diyarbakir duzce edirne elazig erzincan erzurum eskisehir gaziantep giresun gumushane hakkari hatay igdir isparta istanbul izmir kahramanmaras karabuk karaman kars kastamonu kayseri kilis kirikkale kirklareli kirsehir kocaeli konya kutahya malatya manisa mardin mersin mugla mus nevsehir nigde ordu osmaniye rize sakarya samsun sanliurfa siirt sinop sirnak sivas tekirdag tokat trabzon tunceli usak van yalova yozgat zonguldak".split(" "),
+);
+const ISTANBUL_DISTRICTS = new Set(
+  "adalar arnavutkoy atasehir avcilar bagcilar bahcelievler bakirkoy basaksehir bayrampasa besiktas beykoz beylikduzu beyoglu buyukcekmece catalca cekmekoy esenler esenyurt eyupsultan eyup fatih gaziosmanpasa gungoren kadikoy kagithane kartal kucukcekmece maltepe pendik sancaktepe sariyer silivri sultanbeyli sultangazi sile sisli tuzla umraniye uskudar zeytinburnu".split(" "),
+);
+/** Türkiye adresinden il adını çıkar: il listesinde olanı seç, İstanbul ilçelerini İstanbul'a bağla. */
+function provinceOf(a: { city: string | null; province: string | null }) {
+  for (const v of [a.province, a.city]) if (PROVINCES.has(normCity(v))) return v as string;
+  for (const v of [a.province, a.city]) if (ISTANBUL_DISTRICTS.has(normCity(v))) return "İstanbul";
+  return a.province || a.city;
+}
+
 /** Siparişlerin şehre göre dağılımı. Türkiye'de Shopify "province" = il, "city" = ilçe → il kullanılır. */
 export async function customerCities(days = 90) {
   const rows = await db()
@@ -60,7 +73,7 @@ export async function customerCities(days = 90) {
     const a = r.addr;
     if (!a) continue;
     const tr = !a.country || /turk|türk/i.test(a.country);
-    const label = (tr ? a.province || a.city : a.city || a.province) ?? "";
+    const label = (tr ? provinceOf(a) : a.city || a.province) ?? "";
     const k = normCity(label);
     if (!k) continue;
     const cur = m.get(k) ?? { label, value: 0 };

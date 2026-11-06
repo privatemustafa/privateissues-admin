@@ -13,6 +13,7 @@ import { DropForm } from "@/components/drop-form";
 import { deleteDropAction, snapshotStoriesAction } from "../actions";
 
 const pct = (v: number, total: number) => (total ? (v / total) * 100 : 0);
+const one = (n: number) => n.toLocaleString("tr-TR", { maximumFractionDigits: 1 });
 const sumOf = (xs: Slice[]) => xs.reduce((s, x) => s + x.value, 0);
 
 function Empty({ title, sub }: { title: string; sub: string }) {
@@ -403,10 +404,10 @@ export async function Content() {
                 <tr key={g.f} className={cx(g === best && "font-medium")}>
                   <td className="px-5 py-2.5 font-sans">{FORMAT[g.f]}</td>
                   <td className="px-2 py-2.5 text-right">{g.n}</td>
-                  <td className="px-2 py-2.5 text-right">{compact(g.reach)}</td>
-                  <td className="px-2 py-2.5 text-right">{g.saves.toFixed(1)}</td>
-                  <td className="px-2 py-2.5 text-right">{g.shares.toFixed(1)}</td>
-                  <td className="px-5 py-2.5 text-right">{compact(g.inter)}</td>
+                  <td className="px-2 py-2.5 text-right">{compact(Math.round(g.reach))}</td>
+                  <td className="px-2 py-2.5 text-right">{one(g.saves)}</td>
+                  <td className="px-2 py-2.5 text-right">{one(g.shares)}</td>
+                  <td className="px-5 py-2.5 text-right">{compact(Math.round(g.inter))}</td>
                 </tr>
               ))}
             </tbody>
@@ -414,7 +415,7 @@ export async function Content() {
         </div>
         {groups.length > 1 && best && (
           <p className="mx-5 mt-2 mb-5 border-t border-line pt-4 text-[14px] leading-relaxed text-ink-2">
-            En çok erişimi <b className="font-medium text-ink">{FORMAT[best.f]}</b> alıyor (ort. {compact(best.reach)}). Kaydetme ve
+            En çok erişimi <b className="font-medium text-ink">{FORMAT[best.f]}</b> alıyor (ort. {compact(Math.round(best.reach))}). Kaydetme ve
             paylaşım, içeriğin değerli bulunduğunu gösterir; algoritma en çok bunlara bakar.
           </p>
         )}
@@ -453,7 +454,7 @@ export async function Content() {
                         </a>
                       </td>
                       <td className="px-2 py-2.5 text-right">{compact(r.views)}</td>
-                      <td className="px-2 py-2.5 text-right">{r.avgWatchSec ? `${r.avgWatchSec.toFixed(1)} sn` : "—"}</td>
+                      <td className="px-2 py-2.5 text-right">{r.avgWatchSec ? `${one(r.avgWatchSec)} sn` : "—"}</td>
                       <td className="px-2 py-2.5 text-right">{compact(r.reach)}</td>
                       <td className="px-2 py-2.5 text-right">{r.saves}</td>
                       <td className="px-2 py-2.5 text-right">{r.shares}</td>
@@ -534,7 +535,7 @@ export async function Stories() {
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="Story" value={String(stories.length)} />
             <Stat label="Ort. erişim" value={compact(avg("reach"))} />
-            <Stat label="Ort. yanıt" value={avg("replies").toFixed(1)} />
+            <Stat label="Ort. yanıt" value={one(avg("replies"))} />
             <Stat label="Çıkış oranı" value={`%${Math.round(exitRate * 100)}`} />
           </div>
         )}
