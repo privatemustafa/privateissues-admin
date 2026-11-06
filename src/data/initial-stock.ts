@@ -33,11 +33,12 @@ type Def = {
   sizes: Record<string, { qty: number; id?: string }>;
 };
 
-const OLD = "İlk koleksiyon";
-const NEW = "Yeni koleksiyon";
+/** PDF'teki her şey ilk koleksiyon = eski sezon */
+const OLD = "Eski sezon";
+const NEW = "Yeni sezon";
 
 const DEFS: Def[] = [
-  // --- Yeni koleksiyon (mesajdaki adetler) -------------------------------
+  // --- Yeni sezon (mesajdaki adetler) -------------------------------
   {
     product: "Rich Long Sleeve",
     category: "Long Sleeve",
@@ -60,7 +61,7 @@ const DEFS: Def[] = [
     sizes: { S: { qty: 5 }, M: { qty: 8 }, L: { qty: 7 } }, // 20
   },
 
-  // --- İlk koleksiyon (19 Ağu raporu) -------------------------------------
+  // --- Eski sezon = ilk koleksiyon (19 Ağu raporu) -------------------------------------
   {
     product: "KNIGHT ZIP-UP",
     category: "Zip-up",

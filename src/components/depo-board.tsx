@@ -67,6 +67,14 @@ export function DepoBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, q, filter, low, col]);
 
+  // Filtre yokken sezonlara göre bölümle (yeni sezon önce)
+  const sections =
+    col || collections.length < 2
+      ? [{ name: null as string | null, groups }]
+      : [...collections, null]
+          .map((c) => ({ name: c ?? "Diğer", groups: groups.filter((g) => (g.collection ?? null) === c) }))
+          .filter((s) => s.groups.length);
+
   const counts = {
     low: items.filter((i) => i.qty > 0 && i.qty <= minOf(i)).length,
     out: items.filter((i) => i.qty <= 0).length,
@@ -116,7 +124,7 @@ export function DepoBoard({
                   col === c ? "bg-sand font-medium text-ink" : "text-mute",
                 )}
               >
-                {c ?? "Tüm koleksiyonlar"}
+                {c ?? "Tümü"}
                 <span className="num text-faint">{n}</span>
               </button>
             );
@@ -124,8 +132,18 @@ export function DepoBoard({
         </div>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {groups.map((g) => {
+      {sections.map((sec) => (
+        <section key={sec.name ?? "all"} className="space-y-2">
+          {sec.name && (
+            <div className="flex items-baseline justify-between px-1 pt-2">
+              <h2 className="text-[13px] font-medium tracking-[0.12em] text-ink-2 uppercase">{sec.name}</h2>
+              <span className="num text-[12px] text-mute">
+                {sec.groups.length} ürün · {sec.groups.reduce((s, g) => s + g.items.reduce((a, i) => a + Math.max(0, i.qty), 0), 0)} adet
+              </span>
+            </div>
+          )}
+          <div className="grid gap-3 md:grid-cols-2">
+            {sec.groups.map((g) => {
           const total = g.items.reduce((s, i) => s + Math.max(0, i.qty), 0);
           const shared = new Set(g.items.map((i) => i.location).filter(Boolean));
           return (
@@ -181,7 +199,9 @@ export function DepoBoard({
             </Card>
           );
         })}
-      </div>
+          </div>
+        </section>
+      ))}
       {!groups.length && <p className="py-10 text-center text-[14px] text-mute">Bu filtrede ürün yok.</p>}
       {Object.keys(shopify).length > 0 && (
         <p className="text-[12px] text-faint">
