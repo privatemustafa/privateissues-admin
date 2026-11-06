@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { cx } from "./ui";
 
-const items = [
-  { href: "/", label: "Panel", icon: IconHome },
-  { href: "/orders", label: "Siparişler", icon: IconBox, badge: true },
-  { href: "/stock", label: "Stok", icon: IconStack },
-  { href: "/instagram", label: "Instagram", icon: IconSpark },
-  { href: "/settings", label: "Ayarlar", icon: IconDial },
+const items: { href: string; label: string; icon: (p: P) => React.ReactNode; badge?: boolean; mobile?: boolean }[] = [
+  { href: "/", label: "Panel", icon: IconHome, mobile: true },
+  { href: "/orders", label: "Siparişler", icon: IconBox, badge: true, mobile: true },
+  { href: "/depo", label: "Depo", icon: IconShelf, mobile: true },
+  { href: "/stock", label: "Shopify stok", icon: IconStack },
+  { href: "/instagram", label: "Instagram", icon: IconSpark, mobile: true },
+  { href: "/settings", label: "Ayarlar", icon: IconDial, mobile: true },
 ];
 
 export function Nav({ badge }: { badge: ReactNode }) {
@@ -53,7 +54,7 @@ export function NavView({ badge, path }: { badge: ReactNode; path: string | null
       {/* Fold kapalı / telefon: alt sekme çubuğu */}
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/90 backdrop-blur-xl md:hidden">
         <div className="mx-auto grid h-16 max-w-lg grid-cols-5">
-          {items.map(({ href, label, icon: Icon, badge: hasBadge }) => (
+          {items.filter((i) => i.mobile).map(({ href, label, icon: Icon, badge: hasBadge }) => (
             <Link
               key={href}
               href={href}
@@ -98,6 +99,14 @@ function IconStack({ className }: P) {
       <rect x="4" y="4" width="16" height="5" rx="1.5" />
       <rect x="4" y="11" width="16" height="5" rx="1.5" />
       <path d="M6 20h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconShelf({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M3.5 20V9l8.5-5 8.5 5v11" strokeLinejoin="round" />
+      <path d="M7 20v-7h10v7M7 16.5h10" />
     </svg>
   );
 }

@@ -6,6 +6,7 @@ import { getPending } from "@/lib/data";
 import { CARRIERS } from "@/lib/carriers";
 import { itemImages, shipSummary } from "@/lib/ship";
 import { ago } from "@/lib/format";
+import { warehouseLookup } from "@/lib/warehouse";
 import { PageHeader, Skeleton } from "@/components/ui";
 import { PackBoard, type PackOrder, type PickLine } from "@/components/pack-board";
 
@@ -25,6 +26,7 @@ export default function PackPage() {
 async function Content() {
   await requireSession();
   const pending = await getPending();
+  const lookup = await warehouseLookup();
   const notes = pending.length
     ? await db().select().from(schema.orderNotes).where(inArray(schema.orderNotes.orderId, pending.map((o) => o.id)))
     : [];
@@ -42,6 +44,8 @@ async function Content() {
         images: itemImages(li),
         qty: 0,
         orders: [],
+        location: lookup(li)?.location ?? null,
+        stock: lookup(li)?.qty ?? null,
       };
       cur.qty += li.quantity;
       if (!cur.orders.includes(o.name)) cur.orders.push(o.name);
@@ -56,7 +60,10 @@ async function Content() {
     myNote: noteMap.get(o.id) || null,
   }));
 
-  const sortedPicks = [...picks.values()].sort((a, b) => a.title.localeCompare(b.title) || (a.variant ?? "").localeCompare(b.variant ?? ""));
+  // Raf sırasına göre → depoda tek turda topla
+  const sortedPicks = [...picks.values()].sort(
+    (a, b) => (a.location ?? "~").localeCompare(b.location ?? "~", "tr", { numeric: true }) || a.title.localeCompare(b.title) || (a.variant ?? "").localeCompare(b.variant ?? ""),
+  );
 
   return <PackBoard picks={sortedPicks} orders={orders} carriers={CARRIERS} />;
 }

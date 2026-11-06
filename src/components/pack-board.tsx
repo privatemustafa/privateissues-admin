@@ -14,6 +14,9 @@ export type PickLine = {
   images: string[];
   qty: number;
   orders: string[];
+  /** depodaki raf/konum ve adet */
+  location?: string | null;
+  stock?: number | null;
 };
 
 export type PackOrder = ShipSummary & { age: string; note: string | null; myNote: string | null };
@@ -88,7 +91,10 @@ export function PackBoard({ picks, orders, carriers }: { picks: PickLine[]; orde
               <button onClick={() => toggle(p.key)} className="flex min-w-0 flex-1 items-center gap-2 text-left sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <p className={cx("truncate text-[15px] font-medium", done[p.key] && "line-through")}>{p.title}</p>
-                  <p className="truncate text-[12.5px] text-mute">{p.orders.join(", ")}</p>
+                  <p className="truncate text-[12.5px] text-mute">
+                    {p.location && <b className="mr-1.5 font-medium text-ink">Raf {p.location}</b>}
+                    {p.orders.join(", ")}
+                  </p>
                 </div>
                 {p.variant && (
                   <span className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-paper px-2 text-[15px] font-semibold">

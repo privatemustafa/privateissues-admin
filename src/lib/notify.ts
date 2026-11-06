@@ -19,7 +19,7 @@ import {
 const APP = () => (process.env.APP_URL || "").replace(/\/$/, "");
 
 /** kind+ref daha önce gönderildiyse tekrar göndermez. */
-async function once(kind: string, ref: string, payload: PushPayload) {
+export async function once(kind: string, ref: string, payload: PushPayload) {
   const inserted = await db()
     .insert(schema.notificationLog)
     .values({ kind, ref, title: payload.title, body: payload.body, url: payload.url })

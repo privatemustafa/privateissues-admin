@@ -39,6 +39,12 @@ export function SettingsForm({ settings }: { settings: Settings }) {
         sub="00:00–08:00 arası titreşim/ses yok, hatırlatma yok"
         defaultChecked={settings.quietNights}
       />
+      <Toggle
+        name="warehouseAutoDeduct"
+        label="Siparişler depodan düşsün"
+        sub="Yeni sipariş gelince depo adedi azalır, iptalde geri eklenir"
+        defaultChecked={settings.warehouseAutoDeduct}
+      />
       <label className="flex items-center justify-between gap-4 py-3">
         <span>
           <span className="block text-[15px]">Gecikme hatırlatmaları</span>
@@ -53,7 +59,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
       <label className="flex items-center justify-between gap-4 py-3">
         <span>
           <span className="block text-[15px]">Stok uyarısı</span>
-          <span className="block text-[13px] text-mute">Bir beden bu adede düşünce haber ver</span>
+          <span className="block text-[13px] text-mute">Bir beden bu adede düşünce haber ver (Shopify + depo)</span>
         </span>
         <input
           name="lowStock"

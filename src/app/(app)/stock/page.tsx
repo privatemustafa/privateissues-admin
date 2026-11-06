@@ -6,12 +6,12 @@ import { getStats } from "@/lib/data";
 import { Card, Eyebrow, PageHeader, Skeleton, cx } from "@/components/ui";
 import { StockBoard } from "@/components/stock-board";
 
-export const metadata = { title: "Stok" };
+export const metadata = { title: "Shopify stok" };
 
 export default function StockPage() {
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="Stok" sub="Shopify'dan canlı. Bedene dokun, adedi buradan değiştir." />
+      <PageHeader title="Shopify stok" sub="Sitede görünen adetler. Bedene dokun, adedi buradan değiştir." />
       <Suspense fallback={<Skeleton className="h-96" />}>
         <Content />
       </Suspense>

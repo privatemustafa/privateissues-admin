@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { syncOrder } from "@/lib/shopify/sync";
 import { notifyCancelled, notifyNewOrder, checkLowStock } from "@/lib/notify";
 import { getSettings } from "@/lib/settings";
+import { applyOrdersToWarehouse } from "@/lib/warehouse";
 
 function verify(raw: string, hmacHeader: string | null) {
   const secret = process.env.SHOPIFY_CLIENT_SECRET;
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
 
     const order = await syncOrder(orderId);
     if (!order) return;
+
+    await applyOrdersToWarehouse([order]);
 
     if (topic === "orders/create") {
       await notifyNewOrder(order);

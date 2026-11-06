@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Yavaşça beliren görsel; yüklenemezse ürün adının baş harfleriyle şık bir kutu gösterir. */
 export function SmartImg({
@@ -18,6 +18,15 @@ export function SmartImg({
   eager?: boolean;
 }) {
   const [state, setState] = useState<"loading" | "ok" | "error">(src ? "loading" : "error");
+  const ref = useRef<HTMLImageElement>(null);
+
+  // Görsel, React devreye girmeden (önbellekten) yüklendiyse onLoad hiç tetiklenmez → elle kontrol et
+  useEffect(() => {
+    const el = ref.current;
+    if (el?.complete) {
+      setState(el.naturalWidth > 0 ? "ok" : "error");
+    }
+  }, [src]);
 
   if (!src || state === "error") {
     const initials = (label || alt || "PI")
@@ -40,6 +49,7 @@ export function SmartImg({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={src}
       alt={alt}
       loading={eager ? "eager" : "lazy"}

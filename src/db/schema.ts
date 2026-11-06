@@ -114,3 +114,61 @@ export const kv = pgTable("kv", {
 
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// DEPO — kendi stok kayıtların (Shopify'dan bağımsız). Siparişler buradan düşer.
+
+export const warehouseItems = pgTable(
+  "warehouse_items",
+  {
+    id: serial("id").primaryKey(),
+    /** ürün|beden|renk normalize — aynı satırı iki kez açmamak için */
+    key: text("key").notNull(),
+    product: text("product").notNull(),
+    variant: text("variant"),
+    color: text("color"),
+    sku: text("sku"),
+    qty: integer("qty").notNull().default(0),
+    /** Bu adet ve altı "azaldı" (boşsa ayarlardaki genel eşik) */
+    minQty: integer("min_qty"),
+    cost: doublePrecision("cost"),
+    location: text("location"),
+    image: text("image"),
+    shopifyVariantId: text("shopify_variant_id"),
+    note: text("note"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("warehouse_key_idx").on(t.key), index("warehouse_variant_idx").on(t.shopifyVariantId)],
+);
+
+export type MoveReason =
+  | "order" // siparişle düştü
+  | "cancel" // sipariş iptal → geri eklendi
+  | "unmatched" // sipariş geldi ama depoda karşılığı yok
+  | "restock" // mal girişi
+  | "count" // sayım düzeltmesi
+  | "out" // fire / hediye / numune
+  | "return" // müşteri iadesi
+  | "import";
+
+export const stockMoves = pgTable(
+  "stock_moves",
+  {
+    id: serial("id").primaryKey(),
+    /** Aynı hareket iki kez işlenmesin (ör. order:<orderId>:<satır>) */
+    dedupe: text("dedupe"),
+    itemId: integer("item_id"),
+    delta: integer("delta").notNull().default(0),
+    qtyAfter: integer("qty_after"),
+    reason: text("reason").$type<MoveReason>().notNull(),
+    ref: text("ref"),
+    refName: text("ref_name"),
+    note: text("note"),
+    meta: jsonb("meta").$type<{ title?: string; variant?: string | null; quantity?: number; variantId?: string | null; image?: string | null }>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("stock_moves_dedupe_idx").on(t.dedupe), index("stock_moves_item_idx").on(t.itemId), index("stock_moves_created_idx").on(t.createdAt)],
+);
+
+export type WarehouseItem = typeof warehouseItems.$inferSelect;
+export type StockMove = typeof stockMoves.$inferSelect;

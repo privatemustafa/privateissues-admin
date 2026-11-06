@@ -21,6 +21,9 @@ Private Issues (Istanbul streetwear brand) için tek kullanıcılı admin paneli
 - Para birimi TRY, saat dilimi Europe/Istanbul — `src/lib/format.ts` yardımcılarını kullan.
 - `uppercase` + Türkçe: marka/İngilizce metinlerde `lang="en"` ver (yoksa i → İ olur).
 
+## Depo
+`src/lib/warehouse.ts`. Tablolar `warehouse_items` + `stock_moves` (her değişiklik bir hareket; `dedupe` ile aynı sipariş iki kez düşmez). Sipariş → `applyOrdersToWarehouse` (webhook + senkron çağırır; sadece `warehouse_started_at` sonrası siparişler). Eşleşme: önce `shopifyVariantId`, sonra normalize ürün+beden(+renk) adı. İptal → `revertOrder`. Elle değişiklik → `moveStock`.
+
 ## Görseller
 Ürünlerin vitrin medyası 3D model; onun önizlemesi gri. Her zaman `media(query: "media_type:IMAGE")` ile gerçek fotoğrafı al (`LineItem.images`). Görseller `SmartImg` ile gösterilir (yüklenemezse baş harfler).
 
@@ -30,7 +33,7 @@ Beyaz/krem (`paper #f6f3ec`, `card #fff`, `line #e2dccf`), siyah mürekkep, ince
 Breakpoint'ler: telefon / Fold kapalı < 768px (alt sekme çubuğu); Fold açık `md` (ikon rayı + iki sütun); masaüstü `lg` (etiketli ray).
 
 ## Klasörler
-- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), pack (paketleme), stock (düzenlenebilir), instagram, settings
+- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), pack (paketleme, raf sırasıyla), depo (kendi stok + /depo/import), stock (Shopify stoğu, düzenlenebilir), instagram, settings
 - `src/app/api/` — `webhooks/shopify` (HMAC doğrulamalı), `cron` (15 dk'da bir), `push/subscribe`, `live`
 - `src/lib/` — shopify, notify, push, metricool, data (DB okumaları), format, settings
 

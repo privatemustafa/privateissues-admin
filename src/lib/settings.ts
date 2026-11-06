@@ -12,6 +12,8 @@ export type Settings = {
   eveningReminder: boolean;
   /** 00:00–08:00 arası bildirimler sessiz gelsin */
   quietNights: boolean;
+  /** Yeni siparişler depodan otomatik düşsün */
+  warehouseAutoDeduct: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   morningDigest: true,
   eveningReminder: true,
   quietNights: true,
+  warehouseAutoDeduct: true,
 };
 
 export async function getSettings(): Promise<Settings> {

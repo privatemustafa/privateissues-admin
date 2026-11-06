@@ -3,7 +3,18 @@
 import { refresh } from "next/cache";
 import { db, schema } from "@/db";
 import { requireSession } from "@/lib/auth";
-import { fulfillOrder, registerWebhooks, setStock, updateShopifyNote } from "@/lib/shopify/actions";
+import { fulfillOrder, getInventory, registerWebhooks, setStock, updateShopifyNote } from "@/lib/shopify/actions";
+import {
+  deleteItem,
+  dismissUnmatched,
+  importRows,
+  linkUnmatched,
+  moveStock,
+  updateItem,
+  type ImportRow,
+} from "@/lib/warehouse";
+import type { MoveReason } from "@/db/schema";
+
 import { syncOrders } from "@/lib/shopify/sync";
 import { sendPush } from "@/lib/push";
 import { saveSettings, type Settings } from "@/lib/settings";
@@ -113,6 +124,7 @@ export async function saveSettingsAction(_: ActionResult | undefined, form: Form
       morningDigest: form.get("morningDigest") === "on",
       eveningReminder: form.get("eveningReminder") === "on",
       quietNights: form.get("quietNights") === "on",
+      warehouseAutoDeduct: form.get("warehouseAutoDeduct") === "on",
     };
     await saveSettings(patch);
     refresh();
@@ -135,6 +147,105 @@ export async function setStockAction(input: {
     }
     await setStock(input);
     return { ok: true, message: "Stok güncellendi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Depo
+
+
+export async function depoMoveAction(input: {
+  itemId: number;
+  reason: MoveReason;
+  delta?: number;
+  setTo?: number;
+  note?: string;
+}): Promise<ActionResult> {
+  await requireSession();
+  try {
+    if (input.setTo != null && (!Number.isInteger(input.setTo) || input.setTo < 0)) return { ok: false, message: "Geçersiz adet" };
+    if (input.delta != null && !Number.isInteger(input.delta)) return { ok: false, message: "Geçersiz adet" };
+    const u = await moveStock(input);
+    refresh();
+    return { ok: true, message: `Kaydedildi · elde ${u.qty}` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function depoUpdateAction(
+  id: number,
+  patch: { location?: string | null; minQty?: number | null; cost?: number | null; sku?: string | null },
+): Promise<ActionResult> {
+  await requireSession();
+  try {
+    await updateItem(id, patch);
+    refresh();
+    return { ok: true, message: "Kaydedildi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function depoDeleteAction(id: number): Promise<ActionResult> {
+  await requireSession();
+  await deleteItem(id);
+  refresh();
+  return { ok: true, message: "Silindi" };
+}
+
+export async function depoLinkAction(moveId: number, itemId: number): Promise<ActionResult> {
+  await requireSession();
+  try {
+    await linkUnmatched(moveId, itemId);
+    refresh();
+    return { ok: true, message: "Eşleştirildi ve düşüldü" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function depoDismissAction(moveId: number): Promise<ActionResult> {
+  await requireSession();
+  await dismissUnmatched(moveId);
+  refresh();
+  return { ok: true };
+}
+
+export async function depoImportAction(rows: ImportRow[], mode: "merge" | "replace"): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const clean = rows
+      .filter((r) => r.product?.trim() && Number.isFinite(r.qty))
+      .map((r) => ({ ...r, qty: Math.round(r.qty) }));
+    if (!clean.length) return { ok: false, message: "Aktarılacak satır yok" };
+    const r = await importRows(clean, mode);
+    refresh();
+    return { ok: true, message: `${r.created} yeni, ${r.updated} güncellendi` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Depoyu Shopify'daki mevcut stokla başlatır (ürün, beden, adet, fotoğraf, eşleşme hazır gelir). */
+export async function depoSeedFromShopifyAction(): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const products = await getInventory();
+    const rows: ImportRow[] = products.flatMap((p) =>
+      p.variants.map((v) => ({
+        product: p.title,
+        variant: v.title === "Tek beden" ? null : v.title,
+        qty: Math.max(0, v.qty),
+        image: p.image,
+        shopifyVariantId: v.id,
+      })),
+    );
+    const r = await importRows(rows, "merge");
+    refresh();
+    return { ok: true, message: `${r.created} beden eklendi, ${r.updated} güncellendi` };
   } catch (e) {
     return fail(e);
   }

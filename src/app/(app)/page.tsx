@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { getPending, getRecentOrders, getStats, worstUrgency } from "@/lib/data";
 import { metricoolConfigured, igTimeline } from "@/lib/metricool";
+import { warehouseSummary } from "@/lib/warehouse";
 import { compact, istanbulHour, money, TZ, urgencyLabel } from "@/lib/format";
 import { Card, EmptyState, Eyebrow, Skeleton, Thumb, cx, urgencyColor } from "@/components/ui";
 import { OrderRow, PendingTile } from "@/components/orders";
@@ -28,6 +29,9 @@ export default function Dashboard() {
         <div className="space-y-4">
           <Suspense fallback={<Skeleton className="h-64" />}>
             <Numbers />
+          </Suspense>
+          <Suspense fallback={<Skeleton className="h-28" />}>
+            <DepoMini />
           </Suspense>
           <Suspense fallback={<Skeleton className="h-28" />}>
             <InstagramMini />
@@ -214,6 +218,56 @@ async function InstagramMini() {
             <p className="mt-1 text-right text-[12px] text-mute">{compact(reach7)} erişim · 7g</p>
           </div>
         </div>
+      </Card>
+    </Link>
+  );
+}
+
+async function DepoMini() {
+  await requireSession();
+  const d = await warehouseSummary();
+  if (!d.count) {
+    return (
+      <Link href="/depo" className="block">
+        <Card className="p-5 transition hover:border-faint">
+          <Eyebrow>Depo</Eyebrow>
+          <p className="mt-2 text-[15px] font-medium">Depoyu kur →</p>
+          <p className="text-[13px] text-mute">Elindeki stoğu gir, siparişler otomatik düşsün.</p>
+        </Card>
+      </Link>
+    );
+  }
+  const alerts = [...d.out, ...d.low].slice(0, 4);
+  return (
+    <Link href="/depo" className="block">
+      <Card className={cx("p-5 transition hover:border-faint", (d.low.length || d.out.length || d.unmatched) > 0 && "border-late/30")}>
+        <div className="flex items-center justify-between">
+          <Eyebrow>Depo</Eyebrow>
+          <span className="text-[13px] text-mute">→</span>
+        </div>
+        <div className="mt-2 flex items-baseline gap-3">
+          <p className="num text-[28px] leading-none font-medium">{d.units}</p>
+          <p className="text-[13px] text-mute">adet elde</p>
+          {d.low.length + d.out.length > 0 && (
+            <p className="num ml-auto text-[13px] font-medium text-late">{d.low.length + d.out.length} beden azaldı</p>
+          )}
+        </div>
+        {alerts.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-1.5">
+            {alerts.map((i) => (
+              <li
+                key={i.id}
+                className={cx(
+                  "rounded-full border px-2.5 py-1 text-[12px]",
+                  i.qty <= 0 ? "border-critical/30 text-critical" : "border-late/30 text-late",
+                )}
+              >
+                {i.product} {i.variant} · <b className="num font-medium">{i.qty}</b>
+              </li>
+            ))}
+          </ul>
+        )}
+        {d.unmatched > 0 && <p className="mt-3 text-[12.5px] text-due">{d.unmatched} sipariş satırı eşleşme bekliyor</p>}
       </Card>
     </Link>
   );
