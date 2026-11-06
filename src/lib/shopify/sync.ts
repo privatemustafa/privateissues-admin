@@ -1,7 +1,7 @@
 import "server-only";
 import { db, schema, kvGet, kvSet } from "@/db";
 import type { LineItem, NewOrder } from "@/db/schema";
-import { withCostLimit, shopifyGraphQL } from "./client";
+import { getAccessToken, withCostLimit, shopifyGraphQL } from "./client";
 import { ORDERS_QUERY, ORDER_QUERY } from "./queries";
 import { applyOrdersToWarehouse } from "../warehouse";
 
@@ -163,6 +163,8 @@ export async function syncOrder(id: string) {
  * full=true → tüm geçmiş; aksi halde son senkrondan beri güncellenenler.
  */
 export async function syncOrders({ full = false }: { full?: boolean } = {}) {
+  // Tam senkronda token'ı yenile: uygulamaya yeni izin eklendiyse (ör. read_all_orders) hemen geçerli olsun
+  if (full && !process.env.SHOPIFY_ACCESS_TOKEN) await getAccessToken(true);
   const last = full ? null : await kvGet<string>("orders_synced_at");
   const since = last ? new Date(+new Date(last) - 60 * 60_000).toISOString() : null;
   const query = since ? `updated_at:>='${since}'` : null;
