@@ -33,9 +33,11 @@ Beyaz/krem (`paper #f6f3ec`, `card #fff`, `line #e2dccf`), siyah mürekkep, ince
 Breakpoint'ler: telefon / Fold kapalı < 768px (alt sekme çubuğu); Fold açık `md` (ikon rayı + iki sütun); masaüstü `lg` (etiketli ray).
 
 ## Klasörler
-- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), pack (paketleme, raf sırasıyla), depo (kendi stok + /depo/import), stock (Shopify stoğu, düzenlenebilir), instagram, settings
+- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), pack (paketleme, raf sırasıyla), depo (kendi stok + /depo/import), stock (Shopify stoğu, düzenlenebilir), instagram (sekmeler: genel/kitle/zaman/içerik/story/drop), pr (influencer gönderimleri, otomatik paylaşım bulma), notlar (ortak checklist), giderler, kodlar (Shopify indirim kodları), reklam (Meta Marketing API), settings
+- Arama: `src/lib/search.ts` + `components/search.tsx` (⌘K); telefonda alt çubuktaki "Daha" sayfası
 - `src/app/api/` — `webhooks/shopify` (HMAC doğrulamalı), `cron` (15 dk'da bir), `push/subscribe`, `live`
-- `src/lib/` — shopify, notify, push, metricool, data (DB okumaları), format, settings
+- `src/lib/` — shopify, notify, push, metricool, instagram (+ ig-insights, ig-store), pr, notes, expenses, discounts, ads, search, data (DB okumaları), format, settings
+- Meta izinleri (giriş yapılandırması 4543321862606449): instagram_basic, instagram_manage_insights, instagram_manage_comments (etiket), ads_read; varlıklar: Instagram (zorunlu) + Ad accounts
 
 ## Yol haritası (sıradaki)
 1. Drop planlayıcı: lansman tarihi, teaser takvimi, Shopify indirim kodu oluşturma

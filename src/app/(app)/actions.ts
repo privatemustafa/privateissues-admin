@@ -504,3 +504,63 @@ export async function noteDeleteAction(id: number): Promise<ActionResult> {
   refresh();
   return { ok: true, message: "Silindi" };
 }
+
+// ---------------------------------------------------------------------------
+// Giderler, reklam, arama
+
+export async function expenseAddAction(_: ActionResult | undefined, form: FormData): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { addExpense } = await import("@/lib/expenses");
+    const { EXPENSE_CATEGORIES } = await import("@/db/schema");
+    const amount = Number(String(form.get("amount") ?? "").replace(/\./g, "").replace(",", "."));
+    const title = String(form.get("title") ?? "").trim();
+    const category = String(form.get("category") ?? "") as (typeof EXPENSE_CATEGORIES)[number];
+    const date = String(form.get("date") ?? "");
+    if (!title || !Number.isFinite(amount) || amount <= 0) return { ok: false, message: "Açıklama ve tutar gerekli" };
+    if (!EXPENSE_CATEGORIES.includes(category)) return { ok: false, message: "Kategori seç" };
+    await addExpense({
+      date: date ? new Date(`${date}T12:00:00+03:00`) : new Date(),
+      category,
+      title,
+      amount,
+      vendor: String(form.get("vendor") ?? "").trim() || null,
+      drop: String(form.get("drop") ?? "").trim() || null,
+      note: String(form.get("note") ?? "").trim() || null,
+    });
+    refresh();
+    return { ok: true, message: `Eklendi · ${money(amount)}` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function expenseDeleteAction(id: number): Promise<ActionResult> {
+  await requireSession();
+  const { deleteExpense } = await import("@/lib/expenses");
+  await deleteExpense(id);
+  refresh();
+  return { ok: true, message: "Silindi" };
+}
+
+export async function expenseUpdateAction(id: number, patch: { title?: string; amount?: number; vendor?: string | null; drop?: string | null; note?: string | null }): Promise<ActionResult> {
+  await requireSession();
+  const { updateExpense } = await import("@/lib/expenses");
+  await updateExpense(id, patch);
+  refresh();
+  return { ok: true, message: "Kaydedildi" };
+}
+
+export async function adAccountSelectAction(id: string): Promise<ActionResult> {
+  await requireSession();
+  const { setAdAccountId } = await import("@/lib/ads");
+  await setAdAccountId(id);
+  refresh();
+  return { ok: true, message: "Reklam hesabı seçildi" };
+}
+
+export async function searchAction(q: string) {
+  await requireSession();
+  const { search } = await import("@/lib/search");
+  return search(q);
+}

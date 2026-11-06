@@ -152,3 +152,33 @@ export const INVENTORY_SET = /* GraphQL */ `
     }
   }
 `;
+
+export const DISCOUNTS_QUERY = /* GraphQL */ `
+  query Discounts($after: String) {
+    discountNodes(first: 50, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        discount {
+          __typename
+          ... on DiscountCodeBasic {
+            title status asyncUsageCount usageLimit startsAt endsAt summary
+            codes(first: 10) { nodes { code } }
+            customerGets { value { __typename ... on DiscountPercentage { percentage } ... on DiscountAmount { amount { amount } } } }
+          }
+          ... on DiscountCodeFreeShipping {
+            title status asyncUsageCount usageLimit startsAt endsAt summary
+            codes(first: 10) { nodes { code } }
+          }
+          ... on DiscountCodeBxgy {
+            title status asyncUsageCount usageLimit startsAt endsAt summary
+            codes(first: 10) { nodes { code } }
+          }
+          ... on DiscountAutomaticBasic { title status asyncUsageCount startsAt endsAt summary }
+          ... on DiscountAutomaticFreeShipping { title status asyncUsageCount startsAt endsAt summary }
+          ... on DiscountAutomaticBxgy { title status asyncUsageCount startsAt endsAt summary }
+        }
+      }
+    }
+  }
+`;

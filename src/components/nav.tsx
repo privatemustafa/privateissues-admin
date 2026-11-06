@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cx } from "./ui";
+import { SearchButton } from "./search";
 
 const items: { href: string; label: string; icon: (p: P) => React.ReactNode; badge?: boolean; mobile?: boolean }[] = [
   { href: "/", label: "Panel", icon: IconHome, mobile: true },
@@ -13,7 +14,10 @@ const items: { href: string; label: string; icon: (p: P) => React.ReactNode; bad
   { href: "/instagram", label: "Instagram", icon: IconSpark, mobile: true },
   { href: "/pr", label: "PR", icon: IconGift },
   { href: "/notlar", label: "Notlar", icon: IconCheck, mobile: true },
-  { href: "/settings", label: "Ayarlar", icon: IconDial, mobile: true },
+  { href: "/giderler", label: "Giderler", icon: IconCoin },
+  { href: "/kodlar", label: "Kodlar", icon: IconTag },
+  { href: "/reklam", label: "Reklam", icon: IconMegaphone },
+  { href: "/settings", label: "Ayarlar", icon: IconDial },
 ];
 
 export function Nav({ badge }: { badge: ReactNode }) {
@@ -33,7 +37,10 @@ export function NavView({ badge, path }: { badge: ReactNode; path: string | null
           <p className="hidden text-[20px] leading-tight font-medium tracking-tight lg:block">admin</p>
           <p className="text-[17px] font-medium tracking-tight lg:hidden">PI</p>
         </Link>
-        <nav className="mt-8 flex flex-col gap-0.5">
+        <div className="mt-5">
+          <SearchButton className="w-full justify-center lg:justify-start" />
+        </div>
+        <nav className="mt-4 flex flex-col gap-0.5">
           {items.map(({ href, label, icon: Icon, badge: hasBadge }) => (
             <Link
               key={href}
@@ -72,13 +79,83 @@ export function NavView({ badge, path }: { badge: ReactNode; path: string | null
               <span className={cx(active(href) && "font-medium")}>{label}</span>
             </Link>
           ))}
+          <MoreTab items={items.filter((i) => !i.mobile)} active={active} />
         </div>
       </nav>
     </>
   );
 }
 
+function MoreTab({ items: rest, active }: { items: typeof items; active: (h: string) => boolean }) {
+  const [open, setOpen] = useState(false);
+  const isActive = rest.some((i) => active(i.href));
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className={cx("relative flex flex-col items-center justify-center gap-1 text-[10.5px]", isActive ? "text-ink" : "text-mute")}>
+        <IconMore className="size-[21px]" />
+        <span className={cx(isActive && "font-medium")}>Daha</span>
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 bg-ink/30" onClick={() => setOpen(false)}>
+          <div className="safe-bottom absolute inset-x-0 bottom-0 rounded-t-3xl bg-paper p-4 pb-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line" />
+            <div className="mb-3">
+              <SearchButton className="w-full" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {rest.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  className={cx("flex flex-col items-center gap-1.5 rounded-2xl border border-line bg-card py-3.5 text-[12px]", active(href) && "font-medium ring-1 ring-ink")}
+                >
+                  <Icon className="size-[22px]" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 type P = { className?: string };
+function IconMore({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  );
+}
+function IconCoin({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v9M9.5 10a2.5 2 0 0 1 5 0c0 2-5 2-5 4a2.5 2 0 0 0 5 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconTag({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M3.5 12.5V5a1.5 1.5 0 0 1 1.5-1.5h7.5l8 8-9 9-8-8z" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+function IconMegaphone({ className }: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M4 10v4a1 1 0 0 0 1 1h3l8 4V5L8 9H5a1 1 0 0 0-1 1z" strokeLinejoin="round" />
+      <path d="M19.5 9.5a3.5 3.5 0 0 1 0 5M8 15l1 5h2.5l-.8-5" strokeLinecap="round" />
+    </svg>
+  );
+}
 function IconHome({ className }: P) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>

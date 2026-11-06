@@ -309,3 +309,39 @@ export const notes = pgTable(
 );
 
 export type Note = typeof notes.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Gider defteri
+
+export const EXPENSE_CATEGORIES = [
+  "Üretim",
+  "Kumaş",
+  "Baskı / nakış",
+  "Etiket / ambalaj",
+  "Çekim",
+  "Reklam",
+  "Kargo",
+  "Model / ekip",
+  "PR / hediye",
+  "Yazılım / abonelik",
+  "Diğer",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: serial("id").primaryKey(),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    category: text("category").$type<ExpenseCategory>().notNull(),
+    title: text("title").notNull(),
+    amount: doublePrecision("amount").notNull(),
+    vendor: text("vendor"),
+    /** Hangi drop / koleksiyon için (serbest metin, ör. "Kış 26") */
+    drop: text("drop"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("expenses_date_idx").on(t.date)],
+);
+export type Expense = typeof expenses.$inferSelect;
