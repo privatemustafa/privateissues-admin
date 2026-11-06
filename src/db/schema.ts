@@ -218,3 +218,70 @@ export const drops = pgTable("drops", {
 
 export type IgStory = typeof igStories.$inferSelect;
 export type Drop = typeof drops.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// PR / influencer gönderimleri
+
+export const prPeople = pgTable("pr_people", {
+  id: serial("id").primaryKey(),
+  /** Instagram kullanıcı adı, @ olmadan, küçük harf */
+  handle: text("handle").notNull().unique(),
+  name: text("name"),
+  phone: text("phone"),
+  /** Bu kişiye özel indirim kodu (siparişlerde geçerse satış ona yazılır) */
+  code: text("code"),
+  category: text("category"),
+  note: text("note"),
+  igId: text("ig_id"),
+  followers: integer("followers"),
+  mediaCount: integer("media_count"),
+  avatar: text("avatar"),
+  /** Business discovery çalışmadıysa nedeni (kişisel hesap vb.) */
+  scanError: text("scan_error"),
+  scannedAt: timestamp("scanned_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PrItem = { itemId: number | null; product: string; variant: string | null; qty: number; cost: number | null; image: string | null };
+
+export const prSends = pgTable(
+  "pr_sends",
+  {
+    id: serial("id").primaryKey(),
+    personId: integer("person_id").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    items: jsonb("items").$type<PrItem[]>().notNull().default([]),
+    note: text("note"),
+    /** waiting → posted | no_post (süre doldu) */
+    status: text("status").$type<"waiting" | "posted" | "no_post">().notNull().default("waiting"),
+    postedAt: timestamp("posted_at", { withTimezone: true }),
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pr_sends_person_idx").on(t.personId)],
+);
+
+export const prPosts = pgTable(
+  "pr_posts",
+  {
+    /** Instagram medya kimliği ya da elle eklenen için "url:<permalink>" */
+    id: text("id").primaryKey(),
+    personId: integer("person_id").notNull(),
+    sendId: integer("send_id"),
+    source: text("source").$type<"discovery" | "tag" | "manual">().notNull(),
+    permalink: text("permalink"),
+    mediaType: text("media_type"),
+    caption: text("caption"),
+    image: text("image"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    views: integer("views"),
+    postedAt: timestamp("posted_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pr_posts_person_idx").on(t.personId)],
+);
+
+export type PrPerson = typeof prPeople.$inferSelect;
+export type PrSend = typeof prSends.$inferSelect;
+export type PrPost = typeof prPosts.$inferSelect;

@@ -332,7 +332,7 @@ function ItemEditor({ item, onClose }: { item: WarehouseItem; onClose: () => voi
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={
-              mode === "in" ? "Not: atölyeden geldi, 2. üretim…" : mode === "pr" ? "Kime: isim / hesap (zorunlu değil)" : mode === "out" ? "Not: numune, fire…" : mode === "return" ? "Not: sipariş no, neden…" : "Not (opsiyonel)"
+              mode === "in" ? "Not: atölyeden geldi, 2. üretim…" : mode === "pr" ? "Kime: @kullaniciadi yazarsan PR takibine de eklenir" : mode === "out" ? "Not: numune, fire…" : mode === "return" ? "Not: sipariş no, neden…" : "Not (opsiyonel)"
             }
             className="mt-3 h-10 w-full rounded-xl border border-line bg-card px-3 text-[14px] outline-none focus:border-ink"
           />

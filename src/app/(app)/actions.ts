@@ -171,8 +171,14 @@ export async function depoMoveAction(input: {
     if (input.setTo != null && (!Number.isInteger(input.setTo) || input.setTo < 0)) return { ok: false, message: "Geçersiz adet" };
     if (input.delta != null && !Number.isInteger(input.delta)) return { ok: false, message: "Geçersiz adet" };
     const u = await moveStock(input);
+    // Depodan "PR" ile düşüp notta @kullanıcı yazılırsa PR takibine de eklenir
+    const handle = input.reason === "pr" && input.delta && input.delta < 0 ? input.note?.match(/@([A-Za-z0-9._]{1,30})/)?.[1] : null;
+    if (handle) {
+      const { recordSendFromDepo } = await import("@/lib/pr");
+      await recordSendFromDepo(handle, input.itemId, -input.delta!, input.note ?? null).catch(() => null);
+    }
     refresh();
-    return { ok: true, message: `Kaydedildi · elde ${u.qty}` };
+    return { ok: true, message: `Kaydedildi · elde ${u.qty}${handle ? ` · PR'a eklendi (@${handle.toLowerCase()})` : ""}` };
   } catch (e) {
     return fail(e);
   }
@@ -343,4 +349,86 @@ export async function snapshotStoriesAction(): Promise<ActionResult> {
   } catch (e) {
     return fail(e);
   }
+}
+
+// ---------------------------------------------------------------------------
+// PR
+
+export async function prCreateSendAction(_: ActionResult | undefined, form: FormData): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { createSend } = await import("@/lib/pr");
+    const items = JSON.parse(String(form.get("items") ?? "[]")) as { itemId: number; qty: number }[];
+    const handle = String(form.get("handle") ?? "");
+    if (!handle.trim()) return { ok: false, message: "Instagram kullanıcı adı gerekli" };
+    if (!items.some((i) => i.qty > 0)) return { ok: false, message: "En az bir ürün seç" };
+    const date = String(form.get("sentAt") ?? "");
+    const send = await createSend({
+      handle,
+      name: String(form.get("name") ?? "").trim() || null,
+      phone: String(form.get("phone") ?? "").trim() || null,
+      code: String(form.get("code") ?? "").trim() || null,
+      category: String(form.get("category") ?? "").trim() || null,
+      note: String(form.get("note") ?? "").trim() || null,
+      items,
+      sentAt: date ? new Date(`${date}T12:00:00+03:00`) : undefined,
+    });
+    refresh();
+    return { ok: true, message: `Kaydedildi, stoktan düşüldü (#${send.id})` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function prScanAction(): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { scanAllPr } = await import("@/lib/pr");
+    const r = await scanAllPr({ force: true });
+    refresh();
+    return typeof r === "string"
+      ? { ok: false, message: `Instagram ${r}` }
+      : { ok: true, message: `${r.people} kişi tarandı · ${r.found} paylaşım eşleşti` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function prDeleteSendAction(id: number, restock: boolean): Promise<ActionResult> {
+  await requireSession();
+  const { deleteSend } = await import("@/lib/pr");
+  await deleteSend(id, restock);
+  refresh();
+  return { ok: true, message: restock ? "Silindi, ürünler stoğa geri eklendi" : "Silindi" };
+}
+
+export async function prStatusAction(id: number, status: "waiting" | "posted" | "no_post"): Promise<ActionResult> {
+  await requireSession();
+  const { setSendStatus } = await import("@/lib/pr");
+  await setSendStatus(id, status);
+  refresh();
+  return { ok: true };
+}
+
+export async function prAddLinkAction(sendId: number, url: string): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const { addManualPost } = await import("@/lib/pr");
+    await addManualPost(sendId, url);
+    refresh();
+    return { ok: true, message: "Paylaşım eklendi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function prUpdatePersonAction(
+  id: number,
+  patch: { name?: string | null; phone?: string | null; code?: string | null; category?: string | null; note?: string | null },
+): Promise<ActionResult> {
+  await requireSession();
+  const { updatePerson } = await import("@/lib/pr");
+  await updatePerson(id, patch);
+  refresh();
+  return { ok: true, message: "Kaydedildi" };
 }

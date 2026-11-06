@@ -195,7 +195,15 @@ export async function dismissUnmatched(moveId: number) {
 // ---------------------------------------------------------------------------
 // Elle hareketler
 
-export async function moveStock(input: { itemId: number; reason: MoveReason; delta?: number; setTo?: number; note?: string }) {
+export async function moveStock(input: {
+  itemId: number;
+  reason: MoveReason;
+  delta?: number;
+  setTo?: number;
+  note?: string;
+  ref?: string;
+  refName?: string;
+}) {
   const out = await db().transaction(async (tx) => {
     const [item] = await tx.select().from(W).where(eq(W.id, input.itemId)).for("update");
     if (!item) throw new Error("Ürün bulunamadı");
@@ -206,7 +214,15 @@ export async function moveStock(input: { itemId: number; reason: MoveReason; del
       .set({ qty: item.qty + delta, upcoming: false, updatedAt: new Date() })
       .where(eq(W.id, item.id))
       .returning();
-    await tx.insert(M).values({ itemId: item.id, delta, qtyAfter: u.qty, reason: input.reason, note: input.note || null });
+    await tx.insert(M).values({
+      itemId: item.id,
+      delta,
+      qtyAfter: u.qty,
+      reason: input.reason,
+      note: input.note || null,
+      ref: input.ref ?? null,
+      refName: input.refName ?? null,
+    });
     return u;
   });
   await ensureStarted();
