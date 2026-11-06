@@ -74,37 +74,52 @@ async function getJson<T>(u: URL | string): Promise<T | null> {
   }
 }
 
-/** Unified login token'ından Instagram hesap kimliğini bul (birkaç yol dener). */
-async function findIgAccount(token: string): Promise<{ id: string; username?: string } | null> {
+/** Unified login token'ından Instagram hesap kimliğini bul (birkaç yol dener). Bulamazsa teşhis notu döner. */
+async function findIgAccount(token: string): Promise<{ id: string; username?: string } | { error: string }> {
   const base = HOSTS.fb;
-  const appToken = `${process.env.INSTAGRAM_APP_ID}|${process.env.INSTAGRAM_APP_SECRET}`;
+  const tk = encodeURIComponent(token);
+  const appToken = encodeURIComponent(`${process.env.INSTAGRAM_APP_ID}|${process.env.INSTAGRAM_APP_SECRET}`);
+  const named = async (id: string) => {
+    const acc = await getJson<{ id: string; username?: string }>(`${base}/${id}?fields=id,username&access_token=${tk}`);
+    return acc?.username ? acc : null;
+  };
 
   // 1) Sistem kullanıcısına atanmış Instagram hesapları
   const a = await getJson<{ data?: { id: string; username?: string }[] }>(
-    `${base}/me/assigned_instagram_accounts?fields=id,username&access_token=${encodeURIComponent(token)}`,
+    `${base}/me/assigned_instagram_accounts?fields=id,username&access_token=${tk}`,
   );
   if (a?.data?.[0]) return a.data[0];
 
   // 2) debug_token → granular_scopes.target_ids
-  const d = await getJson<{ data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(
-    `${base}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(appToken)}`,
+  const d = await getJson<{ data?: { type?: string; granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(
+    `${base}/debug_token?input_token=${tk}&access_token=${appToken}`,
   );
-  const ids = (d?.data?.granular_scopes ?? [])
-    .filter((g) => g.scope.startsWith("instagram"))
-    .flatMap((g) => g.target_ids ?? []);
-  for (const id of new Set(ids)) {
-    const acc = await getJson<{ id: string; username?: string }>(
-      `${base}/${id}?fields=id,username&access_token=${encodeURIComponent(token)}`,
-    );
-    if (acc?.username) return acc;
+  const gs = d?.data?.granular_scopes ?? [];
+  for (const id of new Set(gs.filter((g) => g.scope.startsWith("instagram")).flatMap((g) => g.target_ids ?? []))) {
+    const acc = await named(id);
+    if (acc) return acc;
   }
 
-  // 3) Facebook sayfasına bağlı hesap (eski yol)
+  // 3) İşletme portföyündeki Instagram hesapları
+  const biz = await getJson<{ data?: { id: string }[] }>(`${base}/me/businesses?fields=id&access_token=${tk}`);
+  for (const bid of [...(biz?.data ?? []).map((x) => x.id), ...gs.filter((g) => g.scope === "business_management").flatMap((g) => g.target_ids ?? [])]) {
+    for (const edge of ["owned_instagram_accounts", "instagram_accounts", "client_instagram_accounts"]) {
+      const r = await getJson<{ data?: { id: string; username?: string }[] }>(
+        `${base}/${bid}/${edge}?fields=id,username&access_token=${tk}`,
+      );
+      if (r?.data?.[0]) return r.data[0];
+    }
+  }
+
+  // 4) Facebook sayfasına bağlı hesap (eski yol)
   const p = await getJson<{ data?: { instagram_business_account?: { id: string; username?: string } }[] }>(
-    `${base}/me/accounts?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`,
+    `${base}/me/accounts?fields=instagram_business_account{id,username}&access_token=${tk}`,
   );
   const viaPage = p?.data?.find((x) => x.instagram_business_account)?.instagram_business_account;
-  return viaPage ?? null;
+  if (viaPage) return viaPage;
+
+  const summary = gs.map((g) => `${g.scope}${g.target_ids ? `(${g.target_ids.length})` : ""}`).join(", ") || "izin yok";
+  return { error: `Instagram hesabı bulunamadı. Token: ${d?.data?.type ?? "?"} · izinler: ${summary}` };
 }
 
 /** OAuth code → token; kv'ye kaydeder. */
@@ -121,7 +136,7 @@ export async function exchangeCode(code: string, appUrl: string) {
     if (!r.ok) throw new Error(`Meta token: ${(await r.text()).slice(0, 200)}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     const acc = await findIgAccount(j.access_token);
-    if (!acc) throw new Error("Token alındı ama Instagram hesabı bulunamadı — girişte Instagram hesabını seçtiğinden emin ol.");
+    if ("error" in acc) throw new Error(acc.error);
     const t: IgToken = {
       token: j.access_token,
       userId: acc.id,
