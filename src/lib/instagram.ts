@@ -84,6 +84,10 @@ async function findIgAccount(token: string): Promise<{ id: string; username?: st
     return acc?.username ? acc : null;
   };
 
+  // 0) Bilinen hesap kimliği (privateissues.wrld, Private Issues portföyünde) — env ile değiştirilebilir
+  const known = await named(process.env.INSTAGRAM_USER_ID || "17841457958260405");
+  if (known) return known;
+
   // 1) Sistem kullanıcısına atanmış Instagram hesapları
   const a = await getJson<{ data?: { id: string; username?: string }[] }>(
     `${base}/me/assigned_instagram_accounts?fields=id,username&access_token=${tk}`,
