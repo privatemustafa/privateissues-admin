@@ -46,7 +46,7 @@ Private Issues'ın tek yerden yönetildiği panel: Shopify siparişleri, kargo, 
 ### 3. Yerelde dene
 ```bash
 npm install
-npm run db:push     # tabloları oluşturur
+npm run db:push     # tabloları oluşturur (Vercel her yayında bunu kendisi yapar)
 npm run dev         # http://localhost:3000
 ```
 Ayarlar → **Tüm geçmişi çek** ile siparişler gelir.

@@ -13,5 +13,6 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
-  dbCredentials: { url: process.env.DATABASE_URL! },
+  // Vercel + Neon entegrasyonu havuzsuz adresi ayrıca verir; şema değişikliği için o daha sağlam
+  dbCredentials: { url: (process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL)! },
 });

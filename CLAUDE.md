@@ -7,7 +7,7 @@ Private Issues (Istanbul streetwear brand) için tek kullanıcılı admin paneli
 ## Stack
 - Next.js 16 (App Router, **Cache Components açık**, `proxy.ts` = eski middleware), React 19, TypeScript
 - Tailwind v4 (`src/app/globals.css` içindeki `@theme` token'ları)
-- Postgres + Drizzle (`src/db/schema.ts`, `npm run db:push`)
+- Postgres + Drizzle (`src/db/schema.ts`, `npm run db:push`; Vercel build komutu `drizzle-kit push --force` çalıştırır)
 - Shopify Admin GraphQL `2026-10` — Dev Dashboard app, **client credentials grant** (token 24 saatte bir yenilenir, `kv` tablosunda cache)
 - Web Push (VAPID, `web-push`), service worker `public/sw.js`
 - Instagram verisi: `src/lib/ig.ts` tek kapı → önce Instagram Login (`src/lib/instagram.ts`, graph.instagram.com, token kv'de, cron yeniler), yoksa Metricool (`src/lib/metricool.ts`)
