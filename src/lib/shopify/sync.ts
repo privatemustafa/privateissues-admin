@@ -1,7 +1,7 @@
 import "server-only";
 import { db, schema, kvGet, kvSet } from "@/db";
 import type { LineItem, NewOrder } from "@/db/schema";
-import { shopifyGraphQL } from "./client";
+import { withCostLimit, shopifyGraphQL } from "./client";
 import { ORDERS_QUERY, ORDER_QUERY } from "./queries";
 import { applyOrdersToWarehouse } from "../warehouse";
 
@@ -169,17 +169,21 @@ export async function syncOrders({ full = false }: { full?: boolean } = {}) {
 
   let after: string | null = null;
   let count = 0;
+  // Sorgu maliyeti sipariş başına yüksek (ürün görselleri) → küçük sayfa; limit aşılırsa sayfayı küçült
+  let first = 10;
   const startedAt = new Date().toISOString();
-  do {
-    const data: {
-      orders: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: ShopifyOrderNode[] };
-    } = await shopifyGraphQL(ORDERS_QUERY, { first: 100, after, query });
+  for (;;) {
+    type Page = { orders: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: ShopifyOrderNode[] } };
+    const res = await withCostLimit(first, (n) => shopifyGraphQL<Page>(ORDERS_QUERY, { first: n, after, query }));
+    const data = res.data;
+    first = res.first;
     const rows = await upsertOrders(data.orders.nodes);
     // webhook kaçtıysa depo yine de düşsün (aynı sipariş iki kez düşmez)
     await applyOrdersToWarehouse(rows);
     count += data.orders.nodes.length;
-    after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
-  } while (after);
+    if (!data.orders.pageInfo.hasNextPage) break;
+    after = data.orders.pageInfo.endCursor;
+  }
 
   await kvSet("orders_synced_at", startedAt);
   return { count };

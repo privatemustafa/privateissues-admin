@@ -1,5 +1,5 @@
 import "server-only";
-import { shopifyGraphQL, ShopifyError } from "./client";
+import { shopifyGraphQL, ShopifyError, withCostLimit } from "./client";
 import {
   FULFILLMENT_CREATE,
   FULFILLMENT_ORDERS_QUERY,
@@ -151,10 +151,12 @@ type InvNode = {
 export async function getInventory(): Promise<StockProduct[]> {
   const out: StockProduct[] = [];
   let after: string | null = null;
+  let first = 10;
   do {
-    const d: {
-      products: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: InvNode[] };
-    } = await shopifyGraphQL(INVENTORY_QUERY, { after });
+    type Page = { products: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: InvNode[] } };
+    const res = await withCostLimit(first, (n) => shopifyGraphQL<Page>(INVENTORY_QUERY, { first: n, after }));
+    const d = res.data;
+    first = res.first;
     for (const p of d.products.nodes) {
       const images = p.media.nodes.map((m) => m.preview?.image?.url).filter((u): u is string => !!u);
       out.push({

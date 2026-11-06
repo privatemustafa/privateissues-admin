@@ -100,3 +100,19 @@ export function storeAdminUrl(path = "") {
 export function legacyId(gid: string) {
   return gid.split("/").pop()!;
 }
+
+/**
+ * Sayfalı sorgu: tek sorgu maliyet limitini (1000) aşarsa sayfa boyutunu küçültüp tekrar dener.
+ * `run(first)` çağrısı ShopifyError fırlatırsa ve mesajda "Query cost is N" varsa first küçülür.
+ */
+export async function withCostLimit<T>(first: number, run: (first: number) => Promise<T>): Promise<{ data: T; first: number }> {
+  for (;;) {
+    try {
+      return { data: await run(first), first };
+    } catch (e) {
+      const m = e instanceof Error ? e.message.match(/Query cost is (\d+)/) : null;
+      if (!m || first === 1) throw e;
+      first = Math.max(1, Math.floor((first * 900) / Number(m[1])));
+    }
+  }
+}

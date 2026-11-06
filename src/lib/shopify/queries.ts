@@ -21,7 +21,7 @@ export const ORDER_FIELDS = /* GraphQL */ `
     customer { id displayName numberOfOrders }
     shippingAddress { name address1 address2 city province zip country phone }
     shippingLine { title }
-    lineItems(first: 50) {
+    lineItems(first: 25) {
       nodes {
         title
         variantTitle
@@ -36,11 +36,11 @@ export const ORDER_FIELDS = /* GraphQL */ `
         }
         product {
           id
-          media(first: 6, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
+          media(first: 4, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
         }
       }
     }
-    fulfillments(first: 10) { createdAt status trackingInfo { company number url } }
+    fulfillments(first: 5) { createdAt status trackingInfo { company number url } }
   }
 `;
 
@@ -107,15 +107,15 @@ export const WEBHOOK_DELETE = /* GraphQL */ `
 `;
 
 export const INVENTORY_QUERY = /* GraphQL */ `
-  query Inventory($after: String) {
-    products(first: 50, after: $after, query: "status:active", sortKey: TITLE) {
+  query Inventory($first: Int!, $after: String) {
+    products(first: $first, after: $after, query: "status:active", sortKey: TITLE) {
       pageInfo { hasNextPage endCursor }
       nodes {
         id
         title
         totalInventory
         onlineStoreUrl
-        media(first: 8, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
+        media(first: 6, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
         variants(first: 30) {
           nodes {
             id
