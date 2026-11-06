@@ -72,7 +72,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ q?: string }>
           <p className="text-[11px] tracking-[0.16em] text-paper/55 uppercase">Hazır</p>
           <p className="mt-1 text-[17px] font-medium">Verdiğin stoğu yükle</p>
           <p className="mt-1 text-[13px] text-paper/65">
-            Yeni koleksiyon (Rich, Summer Has Gone, Heaven Long Sleeve) + ilk koleksiyon raporu (19 Ağu) ·{" "}
+            Yeni sezon (9 ürün; Rich, Summer Has Gone, Heaven hazır, 6&apos;sı stok bekliyor) + eski sezon (19 Ağu raporu) ·{" "}
             {INITIAL_STOCK.reduce((s, r) => s + r.qty, 0)} adet. Rapordan sonra gelen siparişler otomatik düşülür.
           </p>
           <div className="mt-4 [&_button]:border-paper [&_button]:bg-paper [&_button]:text-ink [&_p]:text-paper/70">
@@ -95,9 +95,11 @@ async function Content({ searchParams }: { searchParams: Promise<{ q?: string }>
   }
 
   const low = settings.lowStock;
-  const units = items.reduce((s, i) => s + Math.max(0, i.qty), 0);
-  const lowN = items.filter((i) => i.qty > 0 && i.qty <= (i.minQty ?? low)).length;
-  const outN = items.filter((i) => i.qty <= 0).length;
+  const live = items.filter((i) => !i.upcoming);
+  const waiting = new Set(items.filter((i) => i.upcoming).map((i) => i.product)).size;
+  const units = live.reduce((s, i) => s + Math.max(0, i.qty), 0);
+  const lowN = live.filter((i) => i.qty > 0 && i.qty <= (i.minQty ?? low)).length;
+  const outN = live.filter((i) => i.qty <= 0).length;
   const value = items.reduce((s, i) => s + (i.cost ? Math.max(0, i.qty) * i.cost : 0), 0);
   const shopify: Record<string, number> = {};
   for (const p of shop ?? []) for (const v of p.variants) shopify[v.id] = v.qty;
@@ -106,7 +108,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ q?: string }>
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Elde" value={String(units)} sub={`${items.length} ürün-beden`} />
+        <Kpi label="Elde" value={String(units)} sub={`${live.length} ürün-beden${waiting ? ` · ${waiting} ürün bekleniyor` : ""}`} />
         <Kpi label="24 saatte düşen" value={String(soldToday)} sub="siparişlerden" />
         <Kpi label="Azalan / biten" value={`${lowN} / ${outN}`} tone={lowN + outN > 0 ? "late" : undefined} />
         <Kpi label="Stok değeri" value={value ? money(value) : "—"} sub={value ? "maliyetten" : "maliyet girilmemiş"} />
@@ -120,7 +122,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ q?: string }>
 
       <UnmatchedBox moves={unmatched} items={items} />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
         <DepoBoard items={items} low={low} shopify={shopify} initialQuery={q} />
 
         <Card className="h-fit overflow-hidden lg:sticky lg:top-6">

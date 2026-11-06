@@ -17,8 +17,8 @@ export default function Dashboard() {
         <Greeting />
       </Suspense>
 
-      <div className="grid gap-4 md:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_1fr]">
+        <div className="min-w-0 space-y-4">
           <Suspense fallback={<Skeleton className="h-72" />}>
             <PendingHero />
           </Suspense>
@@ -26,7 +26,7 @@ export default function Dashboard() {
             <Recent />
           </Suspense>
         </div>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Suspense fallback={<Skeleton className="h-64" />}>
             <Numbers />
           </Suspense>

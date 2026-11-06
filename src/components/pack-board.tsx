@@ -84,7 +84,7 @@ export function PackBoard({ picks, orders, carriers }: { picks: PickLine[]; orde
       </div>
 
       {tab === "pick" ? (
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {picks.map((p) => (
             <Card key={p.key} className={cx("flex min-w-0 items-center gap-2.5 p-2.5 transition sm:gap-3 sm:p-3", done[p.key] && "opacity-45")}>
               <GalleryThumb images={p.images} title={p.title} caption={p.variant ?? undefined} size={60} />
@@ -109,7 +109,7 @@ export function PackBoard({ picks, orders, carriers }: { picks: PickLine[]; orde
           {!picks.length && <Empty />}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {orders.map((o) => (
             <Card key={o.orderId} className={cx("p-4 transition", done[o.orderId] && "opacity-45")}>
               <div className="flex items-start justify-between gap-3">

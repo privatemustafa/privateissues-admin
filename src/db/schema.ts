@@ -139,6 +139,8 @@ export const warehouseItems = pgTable(
     location: text("location"),
     image: text("image"),
     shopifyVariantId: text("shopify_variant_id"),
+    /** Koleksiyonda var ama stoğu henüz gelmedi (biten sayılmaz, uyarı vermez) */
+    upcoming: boolean("upcoming").notNull().default(false),
     note: text("note"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -4,10 +4,11 @@ import { refresh } from "next/cache";
 import { db, schema } from "@/db";
 import { requireSession } from "@/lib/auth";
 import { fulfillOrder, getInventory, registerWebhooks, setStock, updateShopifyNote } from "@/lib/shopify/actions";
-import { INITIAL_STOCK, OLD_REPORT_AT } from "@/data/initial-stock";
+import { INITIAL_STOCK, OLD_REPORT_AT, UPCOMING_ROWS } from "@/data/initial-stock";
 import {
   catchUpOrders,
   deleteItem,
+  receiveUpcoming,
   dismissUnmatched,
   importRows,
   linkUnmatched,
@@ -260,7 +261,7 @@ export async function depoSeedFromShopifyAction(): Promise<ActionResult> {
 export async function depoLoadInitialAction(): Promise<ActionResult> {
   await requireSession();
   try {
-    const r = await importRows(INITIAL_STOCK, "replace", {
+    const r = await importRows([...INITIAL_STOCK, ...UPCOMING_ROWS], "replace", {
       startedAt: OLD_REPORT_AT,
       note: "Başlangıç stoğu",
     });
@@ -269,8 +270,21 @@ export async function depoLoadInitialAction(): Promise<ActionResult> {
     const units = INITIAL_STOCK.reduce((s, x) => s + x.qty, 0);
     return {
       ok: true,
-      message: `${r.created} ürün-beden, ${units} adet yüklendi${applied ? ` · rapordan sonraki ${applied} sipariş düşüldü` : ""}`,
+      message: `${r.created - UPCOMING_ROWS.length} ürün-beden, ${units} adet yüklendi · ${UPCOMING_ROWS.length} ürün stok bekliyor${applied ? ` · rapordan sonraki ${applied} sipariş düşüldü` : ""}`,
     };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function depoReceiveAction(itemId: number, sizes: { variant: string; qty: number }[]): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const clean = sizes.filter((x) => Number.isInteger(x.qty) && x.qty > 0);
+    if (!clean.length) return { ok: false, message: "En az bir bedene adet gir" };
+    await receiveUpcoming(itemId, clean);
+    refresh();
+    return { ok: true, message: `${clean.reduce((s, x) => s + x.qty, 0)} adet depoya girdi` };
   } catch (e) {
     return fail(e);
   }

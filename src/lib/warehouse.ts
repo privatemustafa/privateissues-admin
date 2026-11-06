@@ -29,7 +29,8 @@ export function itemLabel(i: Pick<WarehouseItem, "product" | "variant" | "color"
   return [i.product, i.color, i.variant].filter(Boolean).join(" · ");
 }
 
-function findMatch(items: WarehouseItem[], li: LineItem) {
+function findMatch(all: WarehouseItem[], li: LineItem) {
+  const items = all.filter((i) => !i.upcoming);
   if (li.variantId) {
     const byId = items.find((i) => i.shopifyVariantId === li.variantId);
     if (byId) return byId;
@@ -53,6 +54,7 @@ async function ensureStarted() {
 }
 
 async function lowAlert(item: WarehouseItem, qty: number) {
+  if (item.upcoming) return;
   const settings = await getSettings();
   const min = item.minQty ?? settings.lowStock;
   const ref = `wh-${item.id}`;
@@ -201,7 +203,7 @@ export async function moveStock(input: { itemId: number; reason: MoveReason; del
     if (!delta) return item;
     const [u] = await tx
       .update(W)
-      .set({ qty: item.qty + delta, updatedAt: new Date() })
+      .set({ qty: item.qty + delta, upcoming: false, updatedAt: new Date() })
       .where(eq(W.id, item.id))
       .returning();
     await tx.insert(M).values({ itemId: item.id, delta, qtyAfter: u.qty, reason: input.reason, note: input.note || null });
@@ -236,6 +238,7 @@ export type ImportRow = {
   minQty?: number | null;
   image?: string | null;
   shopifyVariantId?: string | null;
+  upcoming?: boolean;
 };
 
 /**
@@ -256,6 +259,15 @@ export async function importRows(
     }
     const existing = await tx.select().from(W);
     const byKey = new Map(existing.map((e) => [e.key, e]));
+    // Bedenli gerçek stok gelen ürünün "stok bekleniyor" satırını kaldır
+    for (const r of rows) {
+      if (r.upcoming || !r.variant) continue;
+      const ph = byKey.get(itemKey(r.product, null, r.color));
+      if (ph?.upcoming) {
+        await tx.delete(W).where(eq(W.id, ph.id));
+        byKey.delete(ph.key);
+      }
+    }
     for (const r of rows) {
       const key = itemKey(r.product, r.variant, r.color);
       const cur = byKey.get(key);
@@ -273,6 +285,7 @@ export async function importRows(
             collection: r.collection ?? cur.collection,
             image: cur.image ?? r.image ?? null,
             shopifyVariantId: cur.shopifyVariantId ?? r.shopifyVariantId ?? null,
+            upcoming: r.upcoming ?? false,
             updatedAt: new Date(),
           })
           .where(eq(W.id, cur.id))
@@ -296,10 +309,11 @@ export async function importRows(
             collection: r.collection?.trim() || null,
             image: r.image ?? null,
             shopifyVariantId: r.shopifyVariantId ?? null,
+            upcoming: r.upcoming ?? false,
           })
           .returning();
         byKey.set(key, u);
-        await tx.insert(M).values({ itemId: u.id, delta: r.qty, qtyAfter: r.qty, reason: "import", note: opts.note ?? "İçe aktarma" });
+        if (!r.upcoming) await tx.insert(M).values({ itemId: u.id, delta: r.qty, qtyAfter: r.qty, reason: "import", note: opts.note ?? "İçe aktarma" });
         created++;
       }
     }
@@ -345,7 +359,7 @@ export async function getWarehouse() {
 
 export async function warehouseSummary() {
   const settings = await getSettings();
-  const items = await db().select().from(W);
+  const items = (await db().select().from(W)).filter((i) => !i.upcoming);
   const low = items.filter((i) => i.qty > 0 && i.qty <= (i.minQty ?? settings.lowStock));
   const out = items.filter((i) => i.qty <= 0);
   const [u] = await db().select({ n: sql<number>`count(*)::int` }).from(M).where(eq(M.reason, "unmatched"));
@@ -377,4 +391,25 @@ export async function catchUpOrders() {
     .orderBy(schema.orders.createdAt);
   await applyOrdersToWarehouse(rows);
   return rows.length;
+}
+
+/** "Stok bekleniyor" ürünü için stok geldi: bedenleri girer, bekleyen satırı kaldırır. */
+export async function receiveUpcoming(itemId: number, sizes: { variant: string; qty: number }[]) {
+  const [ph] = await db().select().from(W).where(eq(W.id, itemId));
+  if (!ph) throw new Error("Ürün bulunamadı");
+  const rows: ImportRow[] = sizes
+    .filter((s) => s.variant.trim() && s.qty >= 0)
+    .map((s) => ({
+      product: ph.product,
+      variant: s.variant.trim(),
+      color: ph.color,
+      category: ph.category,
+      collection: ph.collection,
+      qty: s.qty,
+      image: ph.image,
+      location: ph.location,
+      cost: ph.cost,
+    }));
+  if (!rows.length) throw new Error("En az bir beden gir");
+  return importRows(rows, "merge", { note: "Stok geldi" });
 }

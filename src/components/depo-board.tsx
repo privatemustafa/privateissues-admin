@@ -8,6 +8,7 @@ import {
   depoDismissAction,
   depoLinkAction,
   depoMoveAction,
+  depoReceiveAction,
   depoUpdateAction,
 } from "@/app/(app)/actions";
 import { GalleryThumb } from "./gallery";
@@ -60,10 +61,15 @@ export function DepoBoard({
         filter === "all"
           ? true
           : filter === "out"
-            ? g.items.some((i) => i.qty <= 0)
-            : g.items.some((i) => i.qty > 0 && i.qty <= minOf(i)),
+            ? g.items.some((i) => !i.upcoming && i.qty <= 0)
+            : g.items.some((i) => !i.upcoming && i.qty > 0 && i.qty <= minOf(i)),
       )
-      .sort((a, b) => Math.min(...a.items.map((i) => i.qty - minOf(i))) - Math.min(...b.items.map((i) => i.qty - minOf(i))));
+      .sort((a, b) => {
+        const ua = a.items.every((i) => i.upcoming) ? 1 : 0;
+        const ub = b.items.every((i) => i.upcoming) ? 1 : 0;
+        if (ua !== ub) return ua - ub;
+        return Math.min(...a.items.map((i) => i.qty - minOf(i))) - Math.min(...b.items.map((i) => i.qty - minOf(i)));
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, q, filter, low, col]);
 
@@ -75,18 +81,19 @@ export function DepoBoard({
           .map((c) => ({ name: c ?? "Diğer", groups: groups.filter((g) => (g.collection ?? null) === c) }))
           .filter((s) => s.groups.length);
 
+  const live = items.filter((i) => !i.upcoming);
   const counts = {
-    low: items.filter((i) => i.qty > 0 && i.qty <= minOf(i)).length,
-    out: items.filter((i) => i.qty <= 0).length,
+    low: live.filter((i) => i.qty > 0 && i.qty <= minOf(i)).length,
+    out: live.filter((i) => i.qty <= 0).length,
   };
   const selected = items.find((i) => i.id === open) ?? null;
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {(
           [
-            ["all", "Tümü", items.length],
+            ["all", "Tümü", live.length],
             ["low", "Azalan", counts.low],
             ["out", "Biten", counts.out],
           ] as const
@@ -135,17 +142,20 @@ export function DepoBoard({
       {sections.map((sec) => (
         <section key={sec.name ?? "all"} className="space-y-2">
           {sec.name && (
-            <div className="flex items-baseline justify-between px-1 pt-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 px-1 pt-2">
               <h2 className="text-[13px] font-medium tracking-[0.12em] text-ink-2 uppercase">{sec.name}</h2>
               <span className="num text-[12px] text-mute">
                 {sec.groups.length} ürün · {sec.groups.reduce((s, g) => s + g.items.reduce((a, i) => a + Math.max(0, i.qty), 0), 0)} adet
+                {sec.groups.some((g) => g.items.every((i) => i.upcoming)) &&
+                  ` · ${sec.groups.filter((g) => g.items.every((i) => i.upcoming)).length} bekliyor`}
               </span>
             </div>
           )}
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {sec.groups.map((g) => {
           const total = g.items.reduce((s, i) => s + Math.max(0, i.qty), 0);
           const shared = new Set(g.items.map((i) => i.location).filter(Boolean));
+          if (g.items.every((i) => i.upcoming)) return <UpcomingCard key={g.key} g={g} />;
           return (
             <Card key={g.key} className="p-4">
               <div className="flex items-center gap-3">
@@ -465,5 +475,90 @@ function UnmatchedRow({ m, items }: { m: StockMove; items: WarehouseItem[] }) {
         Yok say
       </button>
     </li>
+  );
+}
+
+const DEFAULT_SIZES = ["S", "M", "L", "XL"];
+
+function UpcomingCard({ g }: { g: Group }) {
+  const [open, setOpen] = useState(false);
+  const [sizes, setSizes] = useState(DEFAULT_SIZES.map((v) => ({ variant: v, qty: "" })));
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, run] = useTransition();
+  const total = sizes.reduce((s, x) => s + (Number(x.qty) || 0), 0);
+  const ph = g.items[0];
+
+  return (
+    <Card className="border-dashed p-4">
+      <div className="flex items-center gap-3">
+        <div className="size-[60px] shrink-0 overflow-hidden rounded-xl border border-dashed border-line bg-paper">
+          <SmartImg src={g.image} alt={g.product} label={g.product} className="size-full" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-medium">{g.product}</p>
+          <p className="truncate text-[12.5px] text-mute">{[g.color, g.category].filter(Boolean).join(" · ")}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-due/12 px-2.5 py-1 text-[11.5px] font-medium text-due">Stok bekleniyor</span>
+      </div>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="mt-3 h-10 w-full rounded-xl border border-line bg-paper text-[13.5px] font-medium transition active:scale-[0.99]"
+        >
+          Stok geldi → bedenleri gir
+        </button>
+      ) : (
+        <div className="animate-in mt-3 rounded-2xl bg-paper p-3">
+          <div className="grid grid-cols-4 gap-2">
+            {sizes.map((s, i) => (
+              <label key={i} className="block text-center">
+                <input
+                  value={s.variant}
+                  onChange={(e) => setSizes((xs) => xs.map((x, k) => (k === i ? { ...x, variant: e.target.value } : x)))}
+                  className="h-7 w-full rounded-lg bg-transparent text-center text-[12px] text-mute outline-none focus:bg-card"
+                />
+                <input
+                  inputMode="numeric"
+                  value={s.qty}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setSizes((xs) => xs.map((x, k) => (k === i ? { ...x, qty: e.target.value.replace(/\D/g, "") } : x)))
+                  }
+                  className="num h-12 w-full rounded-xl border border-line bg-card text-center text-[20px] font-medium outline-none focus:border-ink"
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={() => setSizes((xs) => [...xs, { variant: "", qty: "" }])}
+            className="mt-2 text-[12.5px] text-mute underline"
+          >
+            + beden ekle
+          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              disabled={pending || !total}
+              onClick={() =>
+                run(async () => {
+                  const r = await depoReceiveAction(
+                    ph.id,
+                    sizes.map((x) => ({ variant: x.variant, qty: Number(x.qty) || 0 })),
+                  );
+                  setMsg({ ok: r.ok, text: r.message ?? "" });
+                  if (r.ok) navigator.vibrate?.([20, 20, 40]);
+                })
+              }
+              className="h-10 flex-1 rounded-full bg-ink text-[14px] font-medium text-paper disabled:opacity-40"
+            >
+              {pending ? "Kaydediliyor…" : total ? `${total} adeti depoya al` : "Adet gir"}
+            </button>
+            <button onClick={() => setOpen(false)} className="h-10 rounded-full border border-line px-4 text-[13px]">
+              Vazgeç
+            </button>
+          </div>
+          {msg && <p className={cx("mt-2 text-center text-[12.5px]", msg.ok ? "text-mute" : "text-late")}>{msg.text}</p>}
+        </div>
+      )}
+    </Card>
   );
 }

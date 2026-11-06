@@ -14,6 +14,7 @@ import type { ImportRow } from "@/lib/warehouse";
  *     CHAIN TEE ← chain tee · ISSUE BAG ← issue bag · ISSUE JORT ← issue jort
  *     TOXIC TEE, FLOWER TEE, WINE TEE → Shopify'da yok, raporundaki adla.
  *
+ * YENİ SEZON (9 ürün): stoğu hazır 3'ü WhatsApp mesajından, kalan 6'sı "stok bekleniyor".
  * YENİ KOLEKSİYON: WhatsApp mesajı ("total bu çıktı final", 6 Kas 2026).
  *   beyaz → Rich Long Sleeve · siyah → Summer Has Gone Long Sleeve · waffle → Heaven Long Sleeve
  *   Shopify'da henüz yoklar; aynı adla açıldıklarında siparişler otomatik eşleşir.
@@ -154,12 +155,21 @@ export const INITIAL_STOCK: ImportRow[] = DEFS.flatMap((d) =>
   })),
 );
 
-/** Henüz stoğu girilmemiş yeni koleksiyon ürünleri (bilgi amaçlı) */
-export const UPCOMING = [
-  "Issue Sweatpants",
-  "Leopard Long Sleeve",
-  "Violation Issue Long Sleeve",
-  "Camo Hoodie",
-  "Galaxy Zipup",
-  "Answer my issues hoodie",
+/** Yeni sezonun stoğu henüz gelmemiş ürünleri → depoda "stok bekleniyor" olarak görünür */
+export const UPCOMING: { product: string; category: string }[] = [
+  { product: "Issue Sweatpants", category: "Sweatpants" },
+  { product: "Leopard Long Sleeve", category: "Long Sleeve" },
+  { product: "Violation Issue Long Sleeve", category: "Long Sleeve" },
+  { product: "Camo Hoodie", category: "Hoodie" },
+  { product: "Galaxy Zipup", category: "Zip-up" },
+  { product: "Answer my issues hoodie", category: "Hoodie" },
 ];
+
+export const UPCOMING_ROWS: ImportRow[] = UPCOMING.map((u) => ({
+  product: u.product,
+  variant: null,
+  category: u.category,
+  collection: NEW,
+  qty: 0,
+  upcoming: true,
+}));

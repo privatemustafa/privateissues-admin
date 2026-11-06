@@ -66,7 +66,7 @@ export function StockBoard({
         />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {list.map((p) => (
           <ProductCard key={p.id} p={p} low={low} sold={sold[p.title] ?? 0} />
         ))}

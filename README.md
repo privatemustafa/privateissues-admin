@@ -10,6 +10,7 @@ Private Issues'ın tek yerden yönetildiği panel: Shopify siparişleri, kargo, 
 - **Stok uyarısı** — bir beden eşiğin altına düşünce / tükenince.
 - **Kargola** — firma + takip no gir, Shopify'da fulfill olur, müşteriye e-posta gider.
 - **Depo** — kendi stok kaydın (Shopify'dan ayrı). Her sipariş otomatik düşer, iptal olursa geri eklenir, aynı sipariş iki kez düşmez. Bedene dokun → Giriş / Çıkış / Sayım / İade / Bilgi (raf, kod, maliyet, uyarı eşiği). Hareket geçmişi, stok değeri, azalınca bildirim, Shopify adediyle karşılaştırma. Depoda karşılığı olmayan sipariş satırları listelenir, bir kez eşleştirince sonra otomatik.
+- **Stok bekleniyor** — koleksiyonda olup stoğu henüz gelmeyen ürünler listede görünür ama uyarı vermez; "Stok geldi" ile bedenleri girersin.
 - **Depoya aktar** — Excel / Sheets'ten kopyala-yapıştır veya CSV (Ürün, Beden, Adet + istersen Renk, Raf, Kod, Maliyet, Min). Önizleyip "Güncelle" ya da "Sıfırdan kur". Ya da tek tuşla Shopify stoğundan başlat. CSV indir (Excel uyumlu).
 - **Paketleme modu** — toplama listesi (aynı ürün+beden birleşik, raftan ne alınacak) → paket paket tik at → Kargola.
 - **Kargola paneli** — panelden, listeden, paketlemeden sayfa değiştirmeden alttan açılır. Son seçtiğin kargo firmasını hatırlar. Kargo etiketindeki **barkodu kamerayla okut**, takip no kendiliğinden dolar. Bittiğinde müşteriye **WhatsApp'tan hazır mesaj**.
