@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { urgency, urgencyLabel, type Urgency } from "@/lib/format";
+import { SmartImg } from "./img";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -84,16 +85,13 @@ export function StatusPill({ status }: { status: string | null }) {
   return <span className={cx("rounded-full border px-2 py-0.5 text-[11px] font-medium", tone)}>{s.label}</span>;
 }
 
-export function Thumb({ src, alt, size = 48, className }: { src: string | null; alt: string; size?: number; className?: string }) {
+export function Thumb({ src, alt, size = 48, className, label }: { src: string | null; alt: string; size?: number; className?: string; label?: string }) {
   return (
     <div
       className={cx("shrink-0 overflow-hidden rounded-xl border border-line bg-cream", className)}
       style={{ width: size, height: size }}
     >
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={alt} width={size} height={size} className="size-full object-cover" loading="lazy" />
-      ) : null}
+      <SmartImg src={src} alt={alt} label={label ?? alt} className="size-full" />
     </div>
   );
 }

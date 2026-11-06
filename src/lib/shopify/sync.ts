@@ -5,6 +5,10 @@ import { shopifyGraphQL } from "./client";
 import { ORDERS_QUERY, ORDER_QUERY } from "./queries";
 
 type Money = { shopMoney: { amount: string; currencyCode?: string } };
+type MediaNode = { preview: { image: { url: string } | null } | null };
+
+const urls = (nodes: MediaNode[] | undefined) =>
+  (nodes ?? []).map((m) => m.preview?.image?.url).filter((u): u is string => !!u);
 
 export type ShopifyOrderNode = {
   id: string;
@@ -43,7 +47,12 @@ export type ShopifyOrderNode = {
       sku: string | null;
       originalUnitPriceSet: Money;
       image: { url: string } | null;
-      variant: { id: string; inventoryQuantity: number | null } | null;
+      variant: {
+        id: string;
+        inventoryQuantity: number | null;
+        media: { nodes: MediaNode[] };
+      } | null;
+      product: { id: string; media: { nodes: MediaNode[] } } | null;
     }[];
   };
   fulfillments: {
@@ -65,16 +74,24 @@ const OPEN_FULFILLMENT = new Set([
 const DEAD_FINANCIAL = new Set(["REFUNDED", "VOIDED", "EXPIRED"]);
 
 export function mapOrder(n: ShopifyOrderNode): NewOrder {
-  const lineItems: LineItem[] = n.lineItems.nodes.map((li) => ({
-    title: li.title,
-    variantTitle: li.variantTitle && li.variantTitle !== "Default Title" ? li.variantTitle : null,
-    quantity: li.quantity,
-    sku: li.sku,
-    unitPrice: Number(li.originalUnitPriceSet.shopMoney.amount),
-    image: li.image?.url ?? null,
-    variantId: li.variant?.id ?? null,
-    inventoryQuantity: li.variant?.inventoryQuantity ?? null,
-  }));
+  const lineItems: LineItem[] = n.lineItems.nodes.map((li) => {
+    // Vitrin görseli 3D model olunca Shopify gri önizleme veriyor → gerçek fotoğrafı tercih et
+    const variantImg = urls(li.variant?.media.nodes)[0];
+    const productImgs = urls(li.product?.media.nodes);
+    const images = [...new Set([variantImg, ...productImgs].filter(Boolean) as string[])];
+    return {
+      title: li.title,
+      variantTitle: li.variantTitle && li.variantTitle !== "Default Title" ? li.variantTitle : null,
+      quantity: li.quantity,
+      sku: li.sku,
+      unitPrice: Number(li.originalUnitPriceSet.shopMoney.amount),
+      image: images[0] ?? li.image?.url ?? null,
+      images,
+      productId: li.product?.id ?? null,
+      variantId: li.variant?.id ?? null,
+      inventoryQuantity: li.variant?.inventoryQuantity ?? null,
+    };
+  });
 
   const successful = n.fulfillments.filter((f) => f.status === "SUCCESS");
   const fulfilledAt = successful.length

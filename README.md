@@ -9,7 +9,13 @@ Private Issues'ın tek yerden yönetildiği panel: Shopify siparişleri, kargo, 
 - **Sabah özeti 09:00**, **"kargo kapanmadan" 16:00**, gece 00–08 sessiz.
 - **Stok uyarısı** — bir beden eşiğin altına düşünce / tükenince.
 - **Kargola** — firma + takip no gir, Shopify'da fulfill olur, müşteriye e-posta gider.
-- Panel: bekleyen paketler (aciliyet çubuğu), bugün / 7 gün / 30 gün ciro, en çok satanlar.
+- **Paketleme modu** — toplama listesi (aynı ürün+beden birleşik, raftan ne alınacak) → paket paket tik at → Kargola.
+- **Kargola paneli** — panelden, listeden, paketlemeden sayfa değiştirmeden alttan açılır. Son seçtiğin kargo firmasını hatırlar. Kargo etiketindeki **barkodu kamerayla okut**, takip no kendiliğinden dolar. Bittiğinde müşteriye **WhatsApp'tan hazır mesaj**.
+- **Ürün fotoğrafları** — 3D model önizlemesi yerine gerçek ürün fotoğrafları; dokununca tam ekran galeri (paketlerken doğru baskıyı kontrol etmek için).
+- **Stok düzenleme** — bedene dokun, −/+ ile adedi değiştir, Shopify'a yazar. Kaç günlük stok kaldığını gösterir.
+- **Etkileşimli ciro grafiği** — 7/30/90 gün, ciro/sipariş; parmağını çubukların üstünde gezdir, o günün rakamı çıkar.
+- **Aşağı çek → yenile**, bağlantı koparsa Türkçe "Tekrar dene" ekranı.
+- Panel: bekleyen paketler (aciliyet çubuğu), bugün / 7 gün ciro, en çok satanlar.
 - Instagram: takipçi, erişim, içerik bazında **paylaşım sonrası 48 saatte gelen sipariş**.
 - Uygulama açıkken yeni sipariş üstten kayarak gelir, ikon rozetinde bekleyen paket sayısı.
 

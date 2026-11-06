@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Nav, NavView } from "@/components/nav";
 import { LiveWatcher } from "@/components/live-watcher";
+import { PullToRefresh } from "@/components/pull-refresh";
 import { getPendingCount } from "@/lib/data";
 import { requireSession } from "@/lib/auth";
 
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         {children}
       </main>
       <LiveWatcher />
+      <PullToRefresh />
     </div>
   );
 }

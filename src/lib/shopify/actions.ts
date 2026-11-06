@@ -4,6 +4,7 @@ import {
   FULFILLMENT_CREATE,
   FULFILLMENT_ORDERS_QUERY,
   INVENTORY_QUERY,
+  INVENTORY_SET,
   ORDER_NOTE_UPDATE,
   WEBHOOKS_QUERY,
   WEBHOOK_CREATE,
@@ -13,17 +14,7 @@ import { syncOrder } from "./sync";
 
 type UserError = { field: string[] | null; message: string };
 
-export const CARRIERS = [
-  "Yurtiçi Kargo",
-  "Aras Kargo",
-  "MNG Kargo",
-  "PTT Kargo",
-  "Sürat Kargo",
-  "HepsiJET",
-  "Kolay Gelsin",
-  "Trendyol Express",
-  "Elden teslim",
-] as const;
+export { CARRIERS } from "../carriers";
 
 export async function fulfillOrder(input: {
   orderId: string;
@@ -115,12 +106,46 @@ export async function registerWebhooks(appUrl: string) {
 
 // --- Stok -------------------------------------------------------------------
 
+export type StockVariant = {
+  id: string;
+  title: string;
+  qty: number;
+  inventoryItemId: string | null;
+  locationId: string | null;
+  available: number | null;
+  tracked: boolean;
+};
+
 export type StockProduct = {
   id: string;
   title: string;
   image: string | null;
+  images: string[];
+  url: string | null;
   total: number;
-  variants: { id: string; title: string; qty: number }[];
+  variants: StockVariant[];
+};
+
+type InvNode = {
+  id: string;
+  title: string;
+  totalInventory: number;
+  onlineStoreUrl: string | null;
+  media: { nodes: { preview: { image: { url: string } | null } | null }[] };
+  variants: {
+    nodes: {
+      id: string;
+      title: string;
+      inventoryQuantity: number | null;
+      inventoryItem: {
+        id: string;
+        tracked: boolean;
+        inventoryLevels: {
+          nodes: { location: { id: string }; quantities: { quantity: number }[] }[];
+        };
+      } | null;
+    }[];
+  };
 };
 
 export async function getInventory(): Promise<StockProduct[]> {
@@ -128,31 +153,66 @@ export async function getInventory(): Promise<StockProduct[]> {
   let after: string | null = null;
   do {
     const d: {
-      products: {
-        pageInfo: { hasNextPage: boolean; endCursor: string };
-        nodes: {
-          id: string;
-          title: string;
-          totalInventory: number;
-          featuredMedia: { preview: { image: { url: string } | null } | null } | null;
-          variants: { nodes: { id: string; title: string; inventoryQuantity: number | null }[] };
-        }[];
-      };
+      products: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: InvNode[] };
     } = await shopifyGraphQL(INVENTORY_QUERY, { after });
     for (const p of d.products.nodes) {
+      const images = p.media.nodes.map((m) => m.preview?.image?.url).filter((u): u is string => !!u);
       out.push({
         id: p.id,
         title: p.title,
-        image: p.featuredMedia?.preview?.image?.url ?? null,
+        image: images[0] ?? null,
+        images,
+        url: p.onlineStoreUrl,
         total: p.totalInventory,
-        variants: p.variants.nodes.map((v) => ({
-          id: v.id,
-          title: v.title === "Default Title" ? "Tek beden" : v.title,
-          qty: v.inventoryQuantity ?? 0,
-        })),
+        variants: p.variants.nodes.map((v) => {
+          const level = v.inventoryItem?.inventoryLevels.nodes[0];
+          return {
+            id: v.id,
+            title: v.title === "Default Title" ? "Tek beden" : v.title,
+            qty: v.inventoryQuantity ?? 0,
+            inventoryItemId: v.inventoryItem?.id ?? null,
+            locationId: level?.location.id ?? null,
+            available: level?.quantities[0]?.quantity ?? null,
+            tracked: v.inventoryItem?.tracked ?? false,
+          };
+        }),
       });
     }
     after = d.products.pageInfo.hasNextPage ? d.products.pageInfo.endCursor : null;
   } while (after);
   return out;
+}
+
+/** Bir bedenin satılabilir stoğunu yeni değere ayarlar (eşzamanlı değişikliğe karşı korumalı). */
+export async function setStock(input: {
+  inventoryItemId: string;
+  locationId: string;
+  quantity: number;
+  from: number | null;
+}) {
+  const r = await shopifyGraphQL<{
+    inventorySetQuantities: { userErrors: { code: string | null; message: string }[] };
+  }>(INVENTORY_SET, {
+    key: crypto.randomUUID(),
+    input: {
+      name: "available",
+      reason: "correction",
+      referenceDocumentUri: "privateissues-admin://stock",
+      quantities: [
+        {
+          inventoryItemId: input.inventoryItemId,
+          locationId: input.locationId,
+          quantity: input.quantity,
+          changeFromQuantity: input.from,
+        },
+      ],
+    },
+  });
+  const errs = r.inventorySetQuantities.userErrors;
+  if (errs.length) {
+    if (errs.some((e) => e.code === "CHANGE_FROM_QUANTITY_STALE")) {
+      throw new ShopifyError("Stok bu arada değişmiş, sayfayı yenileyip tekrar dene.");
+    }
+    throw new ShopifyError(errs.map((e) => e.message).join(", "));
+  }
 }

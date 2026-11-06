@@ -2,6 +2,9 @@ import Link from "next/link";
 import type { Order } from "@/db/schema";
 import { ago, firstName, hoursSince, isExpress, money, urgency } from "@/lib/format";
 import { Thumb, UrgencyBadge, StatusPill, cx, urgencyColor } from "./ui";
+import { ShipButton } from "./ship-sheet";
+import { CARRIERS } from "@/lib/carriers";
+import { shipSummary } from "@/lib/ship";
 
 function itemsText(o: Order) {
   const [a] = o.lineItems;
@@ -18,7 +21,7 @@ export function OrderRow({ o, href, active }: { o: Order; href: string; active?:
         active ? "bg-cream" : "hover:bg-paper",
       )}
     >
-      <Thumb src={o.lineItems[0]?.image ?? null} alt="" size={46} />
+      <Thumb src={o.lineItems[0]?.image ?? null} alt="" label={o.lineItems[0]?.title} size={46} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="num text-[15px] font-medium">{o.name}</span>
@@ -52,7 +55,7 @@ export function PendingTile({ o }: { o: Order }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-line bg-card p-3">
       <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
-        <Thumb src={o.lineItems[0]?.image ?? null} alt="" size={56} />
+        <Thumb src={o.lineItems[0]?.image ?? null} alt="" label={o.lineItems[0]?.title} size={56} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="num text-[16px] font-medium">{o.name}</span>
@@ -72,12 +75,7 @@ export function PendingTile({ o }: { o: Order }) {
           </div>
         </div>
       </Link>
-      <Link
-        href={`${href}&ship=1#ship`}
-        className="shrink-0 rounded-full bg-ink px-3.5 py-2 text-[13px] font-medium text-paper transition active:scale-[0.97]"
-      >
-        Kargola
-      </Link>
+      <ShipButton order={shipSummary(o)} carriers={CARRIERS} />
     </div>
   );
 }

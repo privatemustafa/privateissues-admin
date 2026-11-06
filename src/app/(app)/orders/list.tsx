@@ -41,6 +41,14 @@ export async function OrderList({ search, activeId }: { search: OrdersSearch; ac
         ))}
       </div>
 
+      {status === "open" && counts.open > 0 && (
+        <Link
+          href="/pack"
+          className="mb-3 flex h-11 items-center justify-between rounded-2xl bg-ink px-4 text-[14px] font-medium text-paper"
+        >
+          Paketleme modu <span>→</span>
+        </Link>
+      )}
       <form action="/orders" className="mb-3">
         <input type="hidden" name="status" value={status} />
         <input

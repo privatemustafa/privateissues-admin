@@ -4,9 +4,10 @@ import { requireSession } from "@/lib/auth";
 import { getPending, getRecentOrders, getStats, worstUrgency } from "@/lib/data";
 import { metricoolConfigured, igTimeline } from "@/lib/metricool";
 import { compact, istanbulHour, money, TZ, urgencyLabel } from "@/lib/format";
-import { Card, Delta, EmptyState, Eyebrow, Skeleton, Thumb, cx, urgencyColor } from "@/components/ui";
+import { Card, EmptyState, Eyebrow, Skeleton, Thumb, cx, urgencyColor } from "@/components/ui";
 import { OrderRow, PendingTile } from "@/components/orders";
-import { DailyBars, Sparkline } from "@/components/charts";
+import { Sparkline } from "@/components/charts";
+import { RevenueChart } from "@/components/revenue-chart";
 
 export default function Dashboard() {
   return (
@@ -89,7 +90,19 @@ async function PendingHero() {
             </span>
           )}
         </div>
-        <div className="mt-5 space-y-2">
+        <Link
+          href="/pack"
+          className="mt-4 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-paper transition active:scale-[0.99]"
+        >
+          <span>
+            <span className="block text-[15px] font-medium">Paketleme moduna geç</span>
+            <span className="block text-[12.5px] text-paper/60">
+              {pending.reduce((n, o) => n + o.itemCount, 0)} ürün · toplama listesi + tek tek kargola
+            </span>
+          </span>
+          <span className="text-[18px]">→</span>
+        </Link>
+        <div className="mt-4 space-y-2">
           {pending.slice(0, 6).map((o) => (
             <PendingTile key={o.id} o={o} />
           ))}
@@ -106,7 +119,7 @@ async function PendingHero() {
 
 async function Numbers() {
   await requireSession();
-  const s = await getStats(30);
+  const [s, long] = await Promise.all([getStats(30), getStats(180)]);
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -125,24 +138,7 @@ async function Numbers() {
       </div>
 
       <Card className="p-5">
-        <div className="flex items-end justify-between">
-          <div>
-            <Eyebrow>Son 30 gün</Eyebrow>
-            <p className="num mt-2 text-[34px] leading-none font-medium tracking-[-0.04em]">{money(s.period.revenue)}</p>
-          </div>
-          <div className="text-right">
-            <Delta now={s.period.revenue} prev={s.period.prevRevenue} />
-            <p className="text-[12px] text-faint">önceki 30 güne göre</p>
-          </div>
-        </div>
-        <div className="mt-5">
-          <DailyBars data={s.points.map((p) => ({ day: p.day, value: p.revenue, label: `${money(p.revenue)} · ${p.orders} sipariş` }))} />
-        </div>
-        <div className="mt-5 grid grid-cols-3 border-t border-line pt-4 text-center">
-          <Mini label="Sipariş" value={String(s.period.orders)} />
-          <Mini label="Sepet ort." value={money(s.period.aov)} />
-          <Mini label="Tekrar alan" value={String(s.period.returning)} />
-        </div>
+        <RevenueChart points={long.points} />
       </Card>
 
       {s.topProducts.length > 0 && (
@@ -164,14 +160,6 @@ async function Numbers() {
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="num text-[17px] font-medium">{value}</p>
-      <p className="text-[11.5px] text-mute">{label}</p>
-    </div>
-  );
-}
 
 async function Recent() {
   await requireSession();

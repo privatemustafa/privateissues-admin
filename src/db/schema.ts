@@ -18,6 +18,9 @@ export type LineItem = {
   sku: string | null;
   unitPrice: number;
   image: string | null;
+  /** Ürünün gerçek fotoğrafları (3D model önizlemesi değil) */
+  images?: string[];
+  productId?: string | null;
   variantId: string | null;
   inventoryQuantity: number | null;
 };

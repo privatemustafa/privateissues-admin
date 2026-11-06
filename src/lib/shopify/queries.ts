@@ -29,7 +29,15 @@ export const ORDER_FIELDS = /* GraphQL */ `
         sku
         originalUnitPriceSet { shopMoney { amount } }
         image { url(transform: { maxWidth: 600 }) }
-        variant { id inventoryQuantity }
+        variant {
+          id
+          inventoryQuantity
+          media(first: 1) { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
+        }
+        product {
+          id
+          media(first: 6, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
+        }
       }
     }
     fulfillments(first: 10) { createdAt status trackingInfo { company number url } }
@@ -106,9 +114,21 @@ export const INVENTORY_QUERY = /* GraphQL */ `
         id
         title
         totalInventory
-        featuredMedia { preview { image { url(transform: { maxWidth: 400 }) } } }
+        onlineStoreUrl
+        media(first: 8, query: "media_type:IMAGE") { nodes { preview { image { url(transform: { maxWidth: 800 }) } } } }
         variants(first: 30) {
-          nodes { id title inventoryQuantity }
+          nodes {
+            id
+            title
+            inventoryQuantity
+            inventoryItem {
+              id
+              tracked
+              inventoryLevels(first: 1) {
+                nodes { location { id } quantities(names: ["available"]) { quantity } }
+              }
+            }
+          }
         }
       }
     }
@@ -120,6 +140,15 @@ export const ORDER_NOTE_UPDATE = /* GraphQL */ `
     orderUpdate(input: $input) {
       order { id }
       userErrors { field message }
+    }
+  }
+`;
+
+export const INVENTORY_SET = /* GraphQL */ `
+  mutation InventorySet($input: InventorySetQuantitiesInput!, $key: String!) {
+    inventorySetQuantities(input: $input) @idempotent(key: $key) {
+      inventoryAdjustmentGroup { id }
+      userErrors { code field message }
     }
   }
 `;

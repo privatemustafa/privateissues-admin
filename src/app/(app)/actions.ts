@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { db, schema } from "@/db";
 import { requireSession } from "@/lib/auth";
-import { fulfillOrder, registerWebhooks, updateShopifyNote } from "@/lib/shopify/actions";
+import { fulfillOrder, registerWebhooks, setStock, updateShopifyNote } from "@/lib/shopify/actions";
 import { syncOrders } from "@/lib/shopify/sync";
 import { sendPush } from "@/lib/push";
 import { saveSettings, type Settings } from "@/lib/settings";
@@ -117,6 +117,24 @@ export async function saveSettingsAction(_: ActionResult | undefined, form: Form
     await saveSettings(patch);
     refresh();
     return { ok: true, message: "Ayarlar kaydedildi" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setStockAction(input: {
+  inventoryItemId: string;
+  locationId: string;
+  quantity: number;
+  from: number | null;
+}): Promise<ActionResult> {
+  await requireSession();
+  try {
+    if (!Number.isInteger(input.quantity) || input.quantity < 0 || input.quantity > 100000) {
+      return { ok: false, message: "Geçersiz adet" };
+    }
+    await setStock(input);
+    return { ok: true, message: "Stok güncellendi" };
   } catch (e) {
     return fail(e);
   }

@@ -3,23 +3,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { getOrder } from "@/lib/data";
-import { CARRIERS } from "@/lib/shopify/actions";
+import { CARRIERS } from "@/lib/carriers";
+import { addressText as fmtAddress, itemImages, shipSummary, waNumber } from "@/lib/ship";
+import { GalleryThumb } from "@/components/gallery";
 import { legacyId, storeAdminUrl } from "@/lib/shopify/client";
 import { dateTime, isExpress, money, waitedFor } from "@/lib/format";
-import { Card, Eyebrow, Skeleton, StatusPill, Thumb, UrgencyBadge } from "@/components/ui";
+import { Card, Eyebrow, Skeleton, StatusPill, UrgencyBadge } from "@/components/ui";
 import { FulfillForm } from "@/components/fulfill-form";
 import { CopyButton, NoteEditor } from "@/components/small";
 import { OrderList, type OrdersSearch } from "../list";
 
 type Search = OrdersSearch & { ship?: string };
-
-function waNumber(phone: string | null) {
-  if (!phone) return null;
-  let d = phone.replace(/\D/g, "");
-  if (d.startsWith("0")) d = "90" + d.slice(1);
-  else if (d.length === 10 && d.startsWith("5")) d = "90" + d;
-  return d.length >= 11 ? d : null;
-}
 
 async function Detail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> }) {
   await requireSession();
@@ -29,11 +23,7 @@ async function Detail({ params, searchParams }: { params: Promise<{ id: string }
   if (!data) notFound();
   const { order: o, note, history } = data;
   const a = o.shippingAddress;
-  const addressText = a
-    ? [a.name, a.address1, a.address2, [a.zip, a.city, a.province].filter(Boolean).join(" "), a.phone ?? o.customerPhone]
-        .filter(Boolean)
-        .join("\n")
-    : "";
+  const addressText = fmtAddress(o);
   const wa = waNumber(a?.phone ?? o.customerPhone);
   const first = (o.customerName ?? "").split(" ")[0];
   const subtotal = o.lineItems.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
@@ -61,7 +51,7 @@ async function Detail({ params, searchParams }: { params: Promise<{ id: string }
       </header>
 
       {o.needsShipping && (
-        <FulfillForm orderId={o.id} carriers={CARRIERS} autoFocus={sp.ship === "1"} />
+        <FulfillForm target={shipSummary(o)} carriers={CARRIERS} autoFocus={sp.ship === "1"} />
       )}
 
       <Card className="p-5">
@@ -72,7 +62,12 @@ async function Detail({ params, searchParams }: { params: Promise<{ id: string }
         <ul className="mt-3 space-y-3">
           {o.lineItems.map((li, i) => (
             <li key={i} className="flex items-center gap-3">
-              <Thumb src={li.image} alt="" size={72} />
+              <GalleryThumb
+                images={itemImages(li)}
+                title={li.title}
+                caption={[li.variantTitle, `${li.quantity} adet`].filter(Boolean).join(" · ")}
+                size={84}
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-medium">{li.title}</p>
                 <p className="text-[13.5px] text-ink-2">

@@ -21,13 +21,16 @@ Private Issues (Istanbul streetwear brand) için tek kullanıcılı admin paneli
 - Para birimi TRY, saat dilimi Europe/Istanbul — `src/lib/format.ts` yardımcılarını kullan.
 - `uppercase` + Türkçe: marka/İngilizce metinlerde `lang="en"` ver (yoksa i → İ olur).
 
+## Görseller
+Ürünlerin vitrin medyası 3D model; onun önizlemesi gri. Her zaman `media(query: "media_type:IMAGE")` ile gerçek fotoğrafı al (`LineItem.images`). Görseller `SmartImg` ile gösterilir (yüklenemezse baş harfler).
+
 ## Tasarım
 Beyaz/krem (`paper #f6f3ec`, `card #fff`, `line #e2dccf`), siyah mürekkep, ince çizgiler, büyük rakamlar (`num` utility). Font yığını: Helvetica Neue → Inter Tight. Aciliyet renkleri: fresh (yeşil) → due (hardal) → late (pas) → critical (bordo). Dark mode yok.
 
 Breakpoint'ler: telefon / Fold kapalı < 768px (alt sekme çubuğu); Fold açık `md` (ikon rayı + iki sütun); masaüstü `lg` (etiketli ray).
 
 ## Klasörler
-- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), stock, instagram, settings
+- `src/app/(app)/` — korumalı sayfalar: panel, orders (liste + detay, Fold'da yan yana), pack (paketleme), stock (düzenlenebilir), instagram, settings
 - `src/app/api/` — `webhooks/shopify` (HMAC doğrulamalı), `cron` (15 dk'da bir), `push/subscribe`, `live`
 - `src/lib/` — shopify, notify, push, metricool, data (DB okumaları), format, settings
 
