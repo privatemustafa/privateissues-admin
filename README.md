@@ -40,7 +40,7 @@ Private Issues'ın tek yerden yönetildiği panel: Shopify siparişleri, kargo, 
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `CRON_SECRET` | `openssl rand -hex 24` |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | `npm run vapid` |
-| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` | Aşağıdaki "Instagram bağlantısı" bölümü (ücretsiz) |
+| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_CONFIG_ID` | Aşağıdaki "Instagram bağlantısı" bölümü (ücretsiz) |
 | `METRICOOL_TOKEN` | Alternatif; sadece Metricool Advanced planda var |
 
 ### 3. Yerelde dene
@@ -65,18 +65,27 @@ Ayarlar → **Tüm geçmişi çek** ile siparişler gelir.
 3. Ana ekrandaki ikondan aç → Ayarlar → **Bildirimler**'i aç → **Test bildirimi gönder**.
 4. Android ayarlarında uygulamanın bildirim kanalını "Öncelikli / Pop-up" yaparsan kilit ekranında görselli gelir.
 
-## Instagram bağlantısı (ücretsiz, ~15 dk, bir kere)
+## Instagram bağlantısı (ücretsiz, bir kere)
 
 Instagram hesabı **Profesyonel** olmalı (İşletme ya da İçerik üreticisi). Facebook sayfası gerekmez.
+Ekim 2026'dan sonra açılan Meta uygulamalarında eski "Instagram login" yok; **Unified login** kullanılıyor.
+Bu yolla alınan token'ın süresi dolmaz.
 
-1. developers.facebook.com → **My Apps → Create App**. Tür olarak **Business** seç, isim `privateissues-admin`.
-2. Uygulama panelinde **Add product → Instagram → Set up**.
-3. Sol menü **Instagram → API setup with Instagram login**:
-   - **Business login settings** → Redirect URI: `https://admin.privateissues.com/api/instagram/callback`
-   - Aynı sayfadaki **Instagram app ID** ve **Instagram app secret**'ı kopyala (Meta app ID değil, Instagram'ınki).
-4. Aynı sayfada **Generate access tokens → Add account**: privateissues.wrld'ü ekle. Instagram uygulamasında Ayarlar → Web sitesi izinleri → Uygulamalar ve web siteleri → **Test davetleri**'nden daveti kabul et. (Uygulama "Development" modunda kaldığı sürece sadece eklenen hesaplar bağlanabilir; senin için yeterli.)
-5. Vercel → Environment Variables: `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` → Redeploy.
-6. Uygulamada **Instagram** sayfası → **Instagram ile bağlan** → privateissues.wrld ile giriş yap → izin ver. Bitti; bağlantı 60 günde bir kendiliğinden yenilenir.
+Uygulama: `privateissues-admin` (App ID 1441805594044571), Private Issues işletme portföyüne bağlı.
+
+1. developers.facebook.com → uygulama → **Use cases → Instagram API → Customize → API setup with Unified login**.
+2. **Create new configuration** → izinler: en azından `instagram_basic` + `instagram_manage_insights`
+   (şablonda insights yoksa **Facebook Login for Business → Configurations**'dan düzenle). Token: System-user, süresiz.
+   Varlık: Instagram hesabı.
+3. Aynı sayfada **Redirect URL**: `https://admin.privateissues.com/api/instagram/callback` → Save.
+4. Vercel → Environment Variables:
+   - `INSTAGRAM_APP_ID` = Meta uygulama kimliği (1441805594044571)
+   - `INSTAGRAM_APP_SECRET` = App settings → Basic → **App secret**
+   - `INSTAGRAM_CONFIG_ID` = Facebook Login for Business → Configurations → yapılandırmanın kimliği
+   → Redeploy.
+5. Uygulamada **Instagram** sayfası → **Instagram ile bağlan** → privateissues.wrld'ü seç → izin ver. Bitti.
+
+Elle alternatif: dashboard'dan alınan kalıcı token'ı `INSTAGRAM_TOKEN`, hesap kimliğini `INSTAGRAM_USER_ID` olarak gir.
 
 ## Geliştirme
 

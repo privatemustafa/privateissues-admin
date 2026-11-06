@@ -115,7 +115,8 @@ async function SourceFooter({ src }: { src: "instagram" | "metricool" }) {
     <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-[12.5px] text-mute">
       <span>
         Kaynak: {src === "instagram" ? `Instagram${t?.username ? ` (@${t.username})` : ""}` : "Metricool"}
-        {t && Number.isFinite(t.expiresAt) && ` · bağlantı ${new Date(t.expiresAt).toLocaleDateString("tr-TR")}'e kadar, otomatik yenilenir`}
+        {t && t.host !== "fb" && t.obtainedAt > 0 && ` · bağlantı ${new Date(t.expiresAt).toLocaleDateString("tr-TR")}'e kadar, otomatik yenilenir`}
+        {t?.host === "fb" && " · kalıcı bağlantı"}
       </span>
       {src === "instagram" && !process.env.INSTAGRAM_TOKEN && (
         <ActionButton action={disconnectInstagramAction}>Bağlantıyı kes</ActionButton>
@@ -219,8 +220,8 @@ function Setup({ err }: { err?: string }) {
         {ready ? (
           <>
             <p className="mt-1 max-w-md text-[14px] text-mute">
-              Instagram&apos;a yönlendirilirsin; <b className="font-medium text-ink">privateissues.wrld</b> ile giriş yapıp izin verince
-              takipçi, erişim ve içerik verileri burada görünür. Bağlantı 60 günde bir kendiliğinden yenilenir.
+              Meta girişine yönlendirilirsin; <b className="font-medium text-ink">privateissues.wrld</b> hesabını seçip izin verince
+              takipçi, erişim ve içerik verileri burada görünür. Bir kere bağlarsın, bağlantı kalıcıdır.
             </p>
             <a
               href="/api/instagram/connect"
@@ -232,8 +233,8 @@ function Setup({ err }: { err?: string }) {
         ) : (
           <>
             <p className="mt-1 max-w-lg text-[14px] text-mute">
-              Bir kerelik kurulum: developers.facebook.com&apos;da ücretsiz bir uygulama aç, <b className="font-medium text-ink">Instagram</b>{" "}
-              ürününü ekle, yönlendirme adresine aşağıdakini yaz ve Instagram uygulama kimliğiyle gizli anahtarı Vercel&apos;e ekle.
+              Bir kerelik kurulum: developers.facebook.com&apos;daki uygulamada <b className="font-medium text-ink">Instagram API → Unified login</b>{" "}
+              yapılandırmasını oluştur, yönlendirme adresine aşağıdakini yaz; uygulama kimliği, gizli anahtar ve yapılandırma kimliğini Vercel&apos;e ekle.
               Ayrıntılı adımlar README&apos;de.
             </p>
             <pre className="mt-4 overflow-x-auto rounded-2xl bg-paper p-4 text-[13px] leading-relaxed">
@@ -241,8 +242,9 @@ function Setup({ err }: { err?: string }) {
 ${(process.env.APP_URL || "https://admin.privateissues.com").replace(/\/$/, "")}/api/instagram/callback
 
 Vercel → Environment Variables:
-INSTAGRAM_APP_ID=...
-INSTAGRAM_APP_SECRET=...`}
+INSTAGRAM_APP_ID=...      (Meta uygulama kimliği)
+INSTAGRAM_APP_SECRET=...  (App settings → Basic → App secret)
+INSTAGRAM_CONFIG_ID=...   (Facebook Login for Business → Configurations)`}
             </pre>
           </>
         )}

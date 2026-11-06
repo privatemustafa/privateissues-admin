@@ -5,14 +5,27 @@ import { dayKey, TZ } from "./format";
 import type { IgPost, Point } from "./metricool";
 
 /**
- * Instagram API with Instagram Login (graph.instagram.com) — Metricool'a alternatif, ücretsiz.
+ * Instagram verisi — iki yol:
+ *  - "fb"  Unified login (Ekim 2026 sonrası açılan Meta uygulamaları): Facebook Login for Business
+ *          yapılandırması (INSTAGRAM_CONFIG_ID) → graph.facebook.com, sistem-kullanıcı token'ı, süresi dolmaz.
+ *  - "ig"  Eski "Instagram login" (graph.instagram.com) — eski uygulamalar için; token 60 gün, cron yeniler.
  * Facebook sayfası gerekmez; hesap Profesyonel (İşletme/İçerik üreticisi) olmalı.
- * Token 60 gün geçerli; cron her gün kontrol edip yeniler.
  */
-const GRAPH = "https://graph.instagram.com/v22.0";
+const FB_VER = "v24.0";
+const HOSTS = { fb: `https://graph.facebook.com/${FB_VER}`, ig: "https://graph.instagram.com/v22.0" } as const;
 export const IG_SCOPES = "instagram_business_basic,instagram_business_manage_insights";
+const NEVER = Date.UTC(2100, 0, 1);
 
-export type IgToken = { token: string; userId: string; username?: string; expiresAt: number; obtainedAt: number };
+export type IgToken = {
+  token: string;
+  userId: string;
+  username?: string;
+  expiresAt: number;
+  obtainedAt: number;
+  host?: "fb" | "ig";
+};
+
+const unifiedMode = () => !!process.env.INSTAGRAM_CONFIG_ID;
 
 export function instagramAppConfigured() {
   return !!(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET);
@@ -20,7 +33,8 @@ export function instagramAppConfigured() {
 
 export async function getIgToken(): Promise<IgToken | null> {
   if (process.env.INSTAGRAM_TOKEN) {
-    return { token: process.env.INSTAGRAM_TOKEN, userId: "me", expiresAt: Infinity, obtainedAt: 0 };
+    const uid = process.env.INSTAGRAM_USER_ID;
+    return { token: process.env.INSTAGRAM_TOKEN, userId: uid || "me", expiresAt: NEVER, obtainedAt: 0, host: uid ? "fb" : "ig" };
   }
   return kvGet<IgToken>("ig_token");
 }
@@ -31,22 +45,100 @@ export async function instagramConnected() {
 }
 
 export function authorizeUrl(appUrl: string, state: string) {
+  const redirect = `${appUrl}/api/instagram/callback`;
+  if (unifiedMode()) {
+    const u = new URL(`https://www.facebook.com/${FB_VER}/dialog/oauth`);
+    u.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);
+    u.searchParams.set("redirect_uri", redirect);
+    u.searchParams.set("config_id", process.env.INSTAGRAM_CONFIG_ID!);
+    u.searchParams.set("response_type", "code");
+    u.searchParams.set("override_default_response_type", "true");
+    u.searchParams.set("state", state);
+    return u.toString();
+  }
   const u = new URL("https://www.instagram.com/oauth/authorize");
   u.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);
-  u.searchParams.set("redirect_uri", `${appUrl}/api/instagram/callback`);
+  u.searchParams.set("redirect_uri", redirect);
   u.searchParams.set("response_type", "code");
   u.searchParams.set("scope", IG_SCOPES);
   u.searchParams.set("state", state);
   return u.toString();
 }
 
-/** OAuth code → kısa token → 60 günlük token; kv'ye kaydeder. */
+async function getJson<T>(u: URL | string): Promise<T | null> {
+  try {
+    const r = await fetch(u, { cache: "no-store" });
+    return r.ok ? ((await r.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Unified login token'ından Instagram hesap kimliğini bul (birkaç yol dener). */
+async function findIgAccount(token: string): Promise<{ id: string; username?: string } | null> {
+  const base = HOSTS.fb;
+  const appToken = `${process.env.INSTAGRAM_APP_ID}|${process.env.INSTAGRAM_APP_SECRET}`;
+
+  // 1) Sistem kullanıcısına atanmış Instagram hesapları
+  const a = await getJson<{ data?: { id: string; username?: string }[] }>(
+    `${base}/me/assigned_instagram_accounts?fields=id,username&access_token=${encodeURIComponent(token)}`,
+  );
+  if (a?.data?.[0]) return a.data[0];
+
+  // 2) debug_token → granular_scopes.target_ids
+  const d = await getJson<{ data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(
+    `${base}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(appToken)}`,
+  );
+  const ids = (d?.data?.granular_scopes ?? [])
+    .filter((g) => g.scope.startsWith("instagram"))
+    .flatMap((g) => g.target_ids ?? []);
+  for (const id of new Set(ids)) {
+    const acc = await getJson<{ id: string; username?: string }>(
+      `${base}/${id}?fields=id,username&access_token=${encodeURIComponent(token)}`,
+    );
+    if (acc?.username) return acc;
+  }
+
+  // 3) Facebook sayfasına bağlı hesap (eski yol)
+  const p = await getJson<{ data?: { instagram_business_account?: { id: string; username?: string } }[] }>(
+    `${base}/me/accounts?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`,
+  );
+  const viaPage = p?.data?.find((x) => x.instagram_business_account)?.instagram_business_account;
+  return viaPage ?? null;
+}
+
+/** OAuth code → token; kv'ye kaydeder. */
 export async function exchangeCode(code: string, appUrl: string) {
+  const redirect = `${appUrl}/api/instagram/callback`;
+
+  if (unifiedMode()) {
+    const u = new URL(`${HOSTS.fb}/oauth/access_token`);
+    u.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);
+    u.searchParams.set("client_secret", process.env.INSTAGRAM_APP_SECRET!);
+    u.searchParams.set("redirect_uri", redirect);
+    u.searchParams.set("code", code);
+    const r = await fetch(u, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Meta token: ${(await r.text()).slice(0, 200)}`);
+    const j = (await r.json()) as { access_token: string; expires_in?: number };
+    const acc = await findIgAccount(j.access_token);
+    if (!acc) throw new Error("Token alındı ama Instagram hesabı bulunamadı — girişte Instagram hesabını seçtiğinden emin ol.");
+    const t: IgToken = {
+      token: j.access_token,
+      userId: acc.id,
+      username: acc.username,
+      expiresAt: j.expires_in ? Date.now() + j.expires_in * 1000 : NEVER,
+      obtainedAt: Date.now(),
+      host: "fb",
+    };
+    await kvSet("ig_token", t);
+    return t;
+  }
+
   const body = new URLSearchParams({
     client_id: process.env.INSTAGRAM_APP_ID!,
     client_secret: process.env.INSTAGRAM_APP_SECRET!,
     grant_type: "authorization_code",
-    redirect_uri: `${appUrl}/api/instagram/callback`,
+    redirect_uri: redirect,
     code,
   });
   const r1 = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body, cache: "no-store" });
@@ -61,9 +153,9 @@ export async function exchangeCode(code: string, appUrl: string) {
   if (!r2.ok) throw new Error(`Instagram token (2): ${await r2.text()}`);
   const long = (await r2.json()) as { access_token: string; expires_in: number };
 
-  const me = await fetch(`${GRAPH}/me?fields=user_id,username&access_token=${long.access_token}`, { cache: "no-store" })
-    .then((r) => (r.ok ? (r.json() as Promise<{ user_id?: string; username?: string }>) : null))
-    .catch(() => null);
+  const me = await getJson<{ user_id?: string; username?: string }>(
+    `${HOSTS.ig}/me?fields=user_id,username&access_token=${long.access_token}`,
+  );
 
   const t: IgToken = {
     token: long.access_token,
@@ -71,15 +163,17 @@ export async function exchangeCode(code: string, appUrl: string) {
     username: me?.username,
     expiresAt: Date.now() + long.expires_in * 1000,
     obtainedAt: Date.now(),
+    host: "ig",
   };
   await kvSet("ig_token", t);
   return t;
 }
 
-/** Cron'dan çağrılır: token 24 saatten eski ve 15 günden az ömrü kaldıysa yeniler. */
+/** Cron'dan çağrılır: yalnızca eski (60 günlük) token'ı yeniler; Unified login token'ı süresizdir. */
 export async function refreshIgTokenIfNeeded() {
   const t = await kvGet<IgToken>("ig_token");
   if (!t) return "none";
+  if (t.host === "fb") return "ok (süresiz)";
   const age = Date.now() - t.obtainedAt;
   const left = t.expiresAt - Date.now();
   if (age < 24 * 3_600_000 || left > 15 * 86_400_000) return "ok";
@@ -102,7 +196,10 @@ export async function disconnectInstagram() {
 async function ig<T>(path: string, params: Record<string, string>): Promise<T> {
   const t = await getIgToken();
   if (!t) throw new Error("Instagram bağlı değil");
-  const u = new URL(`${GRAPH}/${path}`);
+  const host = t.host ?? "ig";
+  // graph.facebook.com'da "me" sistem kullanıcısıdır → Instagram hesap kimliğiyle değiştir
+  const p = host === "fb" ? path.replace(/^me(\/|$)/, `${t.userId}$1`) : path;
+  const u = new URL(`${HOSTS[host]}/${p}`);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
   u.searchParams.set("access_token", t.token);
   const r = await fetch(u, { cache: "no-store" });
