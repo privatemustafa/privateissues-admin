@@ -5,7 +5,7 @@ export const metadata = { title: "Giriş" };
 
 async function NextField({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  return <LoginForm next={next ?? "/"} />;
+  return <LoginForm next={next ?? "/"} withUser={!!process.env.ADMIN_USER} />;
 }
 
 export default function LoginPage({ searchParams }: PageProps<"/login">) {

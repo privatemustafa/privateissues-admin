@@ -3,15 +3,27 @@
 import { useActionState } from "react";
 import { login } from "./actions";
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, withUser }: { next: string; withUser: boolean }) {
   const [state, action, pending] = useActionState(login, undefined);
   return (
     <form action={action} className="mt-10 space-y-3">
       <input type="hidden" name="next" value={next} />
+      {withUser && (
+        <input
+          type="text"
+          name="user"
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="username"
+          placeholder="Kullanıcı adı"
+          className="h-13 w-full rounded-2xl border border-line bg-card px-4 text-[17px] outline-none focus:border-ink"
+        />
+      )}
       <input
         type="password"
         name="password"
-        autoFocus
+        autoFocus={!withUser}
         autoComplete="current-password"
         placeholder="Şifre"
         className="h-13 w-full rounded-2xl border border-line bg-card px-4 text-[17px] outline-none focus:border-ink"

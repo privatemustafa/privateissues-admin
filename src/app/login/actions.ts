@@ -6,18 +6,22 @@ import { createSessionToken, SESSION_COOKIE, SESSION_DAYS } from "@/lib/session"
 import { timingSafeEqual } from "node:crypto";
 
 export async function login(_: { error?: string } | undefined, form: FormData) {
-  const password = String(form.get("password") ?? "");
+  // Klavyeler "ö" gibi harfleri farklı kodlayabilir → NFC ile eşitle
+  const password = String(form.get("password") ?? "").normalize("NFC");
+  const user = String(form.get("user") ?? "").trim().toLocaleLowerCase("tr");
   const next = String(form.get("next") ?? "/");
   const expected = process.env.ADMIN_PASSWORD;
   const secret = process.env.SESSION_SECRET;
   if (!expected || !secret) return { error: "ADMIN_PASSWORD / SESSION_SECRET ayarlı değil." };
 
+  const expectedUser = (process.env.ADMIN_USER ?? "").trim().toLocaleLowerCase("tr");
   const a = Buffer.from(password);
-  const b = Buffer.from(expected);
-  const ok = a.length === b.length && timingSafeEqual(a, b);
-  if (!ok) {
+  const b = Buffer.from(expected.normalize("NFC"));
+  const passOk = a.length === b.length && timingSafeEqual(a, b);
+  const userOk = !expectedUser || user === expectedUser;
+  if (!passOk || !userOk) {
     await new Promise((r) => setTimeout(r, 700));
-    return { error: "Şifre yanlış." };
+    return { error: expectedUser ? "Kullanıcı adı ya da şifre yanlış." : "Şifre yanlış." };
   }
 
   (await cookies()).set(SESSION_COOKIE, await createSessionToken(secret), {
